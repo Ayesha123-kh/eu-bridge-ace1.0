@@ -19,7 +19,7 @@ Fix: remove the personal data from the log line, e.g. log only a non-identifying
 Also list any risk_signals suggesting use in hiring, credit scoring, education or exam scoring, health, biometrics, or critical infrastructure (for example from comments, prompts or variable names). Do not judge them; just list them.
 
 Rules for your output:
-- original_snippet MUST be copied exactly, character for character (including quotes and indentation), from the file, and must be short (1-15 lines) and appear exactly once in that file.
+- original_snippet MUST consist of WHOLE lines (do not start or end in the middle of a line, and never add characters that are not in the file), and MUST be copied exactly, character for character (including quotes and indentation), from the file, and must be short (1-15 lines) and appear exactly once in that file.
 - suggested_patch replaces original_snippet. Keep the original code style, indentation and framework. Make the smallest change that fixes the issue. For UI fixes, include the original element in the patch and add the notice next to it.
 - confidence is your honest certainty from 0 to 1. If you are unsure, report the finding with a LOW confidence rather than guessing a high one.
 - Do not report anything outside the three rules. Do not invent files; file_path must be exactly one of the paths shown in the "=== FILE:" headers.

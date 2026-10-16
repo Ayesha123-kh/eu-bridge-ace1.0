@@ -100,6 +100,21 @@ async def select_files(owner: str, repo: str, ref: str) -> tuple[dict[str, str],
     return {p: c for _, p, c in chosen}, stats
 
 
+def align_snippet(content: str, original: str, patch: str) -> tuple[str, str] | None:
+    """Repair a near-miss snippet so it matches the file exactly once. Returns (original, patch)
+    or None. Handles whitespace differences and up to 3 stray trailing characters."""
+    if original and content.count(original) == 1:
+        return original, patch
+    stripped = original.strip()
+    if stripped and content.count(stripped) == 1:
+        return stripped, patch.strip()
+    for cut in (1, 2, 3):  # model appended a few characters that are not in the file
+        prefix = stripped[:-cut].rstrip()
+        if len(prefix) >= 10 and content.count(prefix) == 1 and patch.strip().startswith(prefix):
+            return prefix, patch.strip()
+    return None
+
+
 def process_findings(raw: list[RawFinding], files: dict[str, str]) -> list[dict]:
     """Validate snippets against fetched files and assign statuses."""
     out = []
@@ -110,7 +125,10 @@ def process_findings(raw: list[RawFinding], files: dict[str, str]) -> list[dict]
         d = f.model_dump()
         d["confidence"] = max(0.0, min(1.0, d["confidence"]))
         reasons = []
-        if not f.original_snippet or content.count(f.original_snippet) != 1:
+        aligned = align_snippet(content, f.original_snippet, f.suggested_patch)
+        if aligned:
+            d["original_snippet"], d["suggested_patch"] = aligned
+        else:
             reasons.append("AI's snippet could not be located exactly — edit the patch manually.")
         if d["confidence"] < CONFIDENCE_THRESHOLD:
             reasons.append(f"AI confidence is low ({d['confidence']:.2f}).")
