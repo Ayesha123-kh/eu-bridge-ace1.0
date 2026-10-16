@@ -100,6 +100,21 @@ async def select_files(owner: str, repo: str, ref: str) -> tuple[dict[str, str],
     return {p: c for _, p, c in chosen}, stats
 
 
+def align_snippet(content: str, original: str, patch: str) -> tuple[str, str] | None:
+    """Repair a near-miss snippet so it matches the file exactly once. Returns (original, patch)
+    or None. Handles whitespace differences and up to 3 stray trailing characters."""
+    if original and content.count(original) == 1:
+        return original, patch
+    stripped = original.strip()
+    if stripped and content.count(stripped) == 1:
+        return stripped, patch.strip()
+    for cut in (1, 2, 3):  # model appended a few characters that are not in the file
+        prefix = stripped[:-cut].rstrip()
+        if len(prefix) >= 10 and content.count(prefix) == 1 and patch.strip().startswith(prefix):
+            return prefix, patch.strip()
+    return None
+
+
 def process_findings(raw: list[RawFinding], files: dict[str, str]) -> list[dict]:
     """Validate snippets against fetched files and assign statuses."""
     out = []
@@ -110,7 +125,10 @@ def process_findings(raw: list[RawFinding], files: dict[str, str]) -> list[dict]
         d = f.model_dump()
         d["confidence"] = max(0.0, min(1.0, d["confidence"]))
         reasons = []
-        if not f.original_snippet or content.count(f.original_snippet) != 1:
+        aligned = align_snippet(content, f.original_snippet, f.suggested_patch)
+        if aligned:
+            d["original_snippet"], d["suggested_patch"] = aligned
+        else:
             reasons.append("AI's snippet could not be located exactly — edit the patch manually.")
         if d["confidence"] < CONFIDENCE_THRESHOLD:
             reasons.append(f"AI confidence is low ({d['confidence']:.2f}).")
@@ -118,6 +136,16 @@ def process_findings(raw: list[RawFinding], files: dict[str, str]) -> list[dict]
         d["needs_human_reason"] = " ".join(reasons) or None
         out.append(d)
     return out
+
+
+def describe_error(e: Exception) -> str:
+    """Safe diagnostic: class, HTTP status and provider error code. Never the message (may echo key)."""
+    parts = [type(e).__name__]
+    if getattr(e, "status_code", None):
+        parts.append(f"HTTP {e.status_code}")
+    if getattr(e, "code", None):
+        parts.append(f"code={e.code}")
+    return ", ".join(parts)
 
 
 def _batches(items: list, n: int):
@@ -147,13 +175,16 @@ async def scan_repo(owner: str, repo: str, ref: str) -> dict:
     warnings: list[str] = []
     items = list(files.items())
     failures = 0
+    last_error = ""
     for batch in _batches(items, BATCH_SIZE):
         try:
             parsed = await _scan_batch(client, system, dict(batch))
         except Exception as e:  # never leak provider error text (may echo key fragments)
             failures += 1
+            last_error = describe_error(e)
+            print(f"[scanner] OpenAI batch failed: {last_error}", flush=True)
             warnings.append(f"AI request failed for a batch of {len(batch)} file(s) "
-                            f"({type(e).__name__}).")
+                            f"({last_error}).")
             continue
         if parsed is None:
             warnings.append("AI returned no parsable result for a batch.")
@@ -162,7 +193,7 @@ async def scan_repo(owner: str, repo: str, ref: str) -> dict:
         signals.update(parsed.risk_signals)
     if items and failures == len(list(_batches(items, BATCH_SIZE))):
         raise ScanError("The AI service could not be reached or rejected the request. "
-                        "Check OPENAI_API_KEY / OPENAI_MODEL and try again.")
+                        f"Check OPENAI_API_KEY / OPENAI_MODEL and try again. ({last_error})")
     if stats["skipped_too_large"] or stats["skipped_over_cap"]:
         warnings.append(f"Some files were skipped (too large: {stats['skipped_too_large']}, "
                         f"over file cap: {stats['skipped_over_cap']}).")

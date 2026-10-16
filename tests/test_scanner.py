@@ -50,3 +50,27 @@ def test_repo_url_parsing():
     for bad in ("http://github.com/o/r", "https://evil.com/o/r", "https://github.com/o"):
         with pytest.raises(ValueError):
             parse_repo_url(bad)
+
+
+def test_stray_trailing_char_is_aligned_not_flagged():
+    html = '  <input id="a">\n  <input id="chat-input" placeholder="Ask...">\n  <button>x</button>\n'
+    snippet = '  <input id="chat-input" placeholder="Ask..."><'
+    patch = '  <input id="chat-input" placeholder="Ask..."><span>AI notice</span>'
+    out = process_findings([raw(file_path="a.html", original_snippet=snippet,
+                                suggested_patch=patch)], {"a.html": html})
+    assert out[0]["status"] == "pending"
+    from app.services.patcher import apply_patch
+    fixed = apply_patch(html, out[0]["original_snippet"], out[0]["suggested_patch"])
+    assert 'placeholder="Ask..."><span>AI notice</span>\n  <button>' in fixed
+
+
+def test_hopeless_snippet_still_needs_human():
+    out = process_findings([raw(original_snippet="totally different text here")],
+                           {"a.py": "print(email)"})
+    assert out[0]["status"] == "needs_human"
+
+
+def test_whitespace_only_difference_is_aligned():
+    out = process_findings([raw(original_snippet="    print(email)  ", suggested_patch="    pass")],
+                           {"a.py": "def f():\n    print(email)\n"})
+    assert out[0]["status"] == "pending" and out[0]["original_snippet"] == "print(email)"
