@@ -120,6 +120,16 @@ def process_findings(raw: list[RawFinding], files: dict[str, str]) -> list[dict]
     return out
 
 
+def describe_error(e: Exception) -> str:
+    """Safe diagnostic: class, HTTP status and provider error code. Never the message (may echo key)."""
+    parts = [type(e).__name__]
+    if getattr(e, "status_code", None):
+        parts.append(f"HTTP {e.status_code}")
+    if getattr(e, "code", None):
+        parts.append(f"code={e.code}")
+    return ", ".join(parts)
+
+
 def _batches(items: list, n: int):
     for i in range(0, len(items), n):
         yield items[i:i + n]
@@ -147,13 +157,16 @@ async def scan_repo(owner: str, repo: str, ref: str) -> dict:
     warnings: list[str] = []
     items = list(files.items())
     failures = 0
+    last_error = ""
     for batch in _batches(items, BATCH_SIZE):
         try:
             parsed = await _scan_batch(client, system, dict(batch))
         except Exception as e:  # never leak provider error text (may echo key fragments)
             failures += 1
+            last_error = describe_error(e)
+            print(f"[scanner] OpenAI batch failed: {last_error}", flush=True)
             warnings.append(f"AI request failed for a batch of {len(batch)} file(s) "
-                            f"({type(e).__name__}).")
+                            f"({last_error}).")
             continue
         if parsed is None:
             warnings.append("AI returned no parsable result for a batch.")
@@ -162,7 +175,7 @@ async def scan_repo(owner: str, repo: str, ref: str) -> dict:
         signals.update(parsed.risk_signals)
     if items and failures == len(list(_batches(items, BATCH_SIZE))):
         raise ScanError("The AI service could not be reached or rejected the request. "
-                        "Check OPENAI_API_KEY / OPENAI_MODEL and try again.")
+                        f"Check OPENAI_API_KEY / OPENAI_MODEL and try again. ({last_error})")
     if stats["skipped_too_large"] or stats["skipped_over_cap"]:
         warnings.append(f"Some files were skipped (too large: {stats['skipped_too_large']}, "
                         f"over file cap: {stats['skipped_over_cap']}).")
