@@ -72,3 +72,10 @@ class ReviewRequest(_Reviewer):
 
 class RiskReviewRequest(_Reviewer):
     pass
+
+
+class RegulationQuery(BaseModel):
+    offers: list[str] = Field(default=[], max_length=20)
+    eu_users: Literal["yes", "planned", "no"] = "planned"
+    size: Literal["micro", "small", "medium", "large"] = "small"
+    personal_data: bool = True

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}EU regulations · {{ app_name }}{% endblock %}
+{% block content %}
+<section class="intro">
+  <h1>Which EU rules apply to your business?</h1>
+  <p class="lede">Answer four quick questions to see the EU AI Act and other regulations that may apply to you, what each one asks of you, and when. Then scan your code against the checks EU-Bridge can run.</p>
+</section>
+
+<div class="explore">
+  <form class="panel qform" id="explore-form" novalidate>
+    <fieldset class="field">
+      <legend>What do you offer?</legend>
+      <div class="chips">
+        {% for key, label in offers.items() %}
+        <label class="chip"><input type="checkbox" name="offers" value="{{ key }}"> {{ label }}</label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    <fieldset class="field">
+      <legend>Do you have, or plan to have, customers in the EU?</legend>
+      <div class="choices">
+        <label class="choice"><input type="radio" name="eu_users" value="yes"> Yes, today</label>
+        <label class="choice"><input type="radio" name="eu_users" value="planned" checked> Planning to</label>
+        <label class="choice"><input type="radio" name="eu_users" value="no"> No</label>
+      </div>
+    </fieldset>
+    <div class="field">
+      <label for="size">How big is the company?</label>
+      <select id="size">
+        <option value="micro">Under 10 people</option>
+        <option value="small" selected>10 to 49 people</option>
+        <option value="medium">50 to 249 people</option>
+        <option value="large">250 people or more</option>
+      </select>
+    </div>
+    <fieldset class="field">
+      <legend>Do you handle personal data of people in the EU?</legend>
+      <div class="choices">
+        <label class="choice"><input type="radio" name="personal" value="yes" checked> Yes</label>
+        <label class="choice"><input type="radio" name="personal" value="no"> No</label>
+      </div>
+      <p class="hint">Names, emails, phone numbers, IP addresses and chat messages all count.</p>
+    </fieldset>
+  </form>
+
+  <div class="results" id="results" aria-live="polite">
+    <div class="callout" id="placeholder">
+      <h2>Pick what you offer</h2>
+      <p>Choose one or more options on the left. The rules that fit show up here.</p>
+    </div>
+  </div>
+</div>
+
+<section class="block" id="ai-act-glance">
+  <h2>The EU AI Act at a glance</h2>
+  <p class="lede" style="font-size:16px">The AI Act sorts AI systems into four tiers by the harm they could cause. Your answers highlight the tiers that may apply to you.</p>
+  <div class="tiers" id="tiers">
+    {% for t in tiers %}
+    <div class="tier" data-tier="{{ t.id }}">
+      <div class="tier-top"><strong>{{ t.name }}</strong>{% if t.ref %}<span class="rule">{{ t.ref }}</span>{% endif %}<span class="mine" hidden>May apply to you</span></div>
+      <p>{{ t.text }}</p>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="callout" id="next-step">
+  <h2>Check your code against the rules EU-Bridge covers</h2>
+  <p>EU-Bridge scans your code for the AI disclosure, third-party AI notice and personal-data-in-logs checks, drafts a fix for each, and waits for a person to approve it.</p>
+  <p style="margin-top:12px"><a class="btn primary" href="/new">Scan your code</a></p>
+</section>
+
+<p class="foot" style="padding:0">Reviewed {{ reviewed_on }} against public summaries of the laws. Dates and scope can change, so confirm in the Official Journal. Decision support, not legal advice.</p>
+{% endblock %}
+{% block scripts %}<script src="/static/explore.js"></script>{% endblock %}

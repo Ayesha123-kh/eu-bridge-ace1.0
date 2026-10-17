@@ -56,6 +56,7 @@ Each entry stores `sha256(prev_hash + canonical_json(entry))`, starting from 64 
 | POST | `/api/scans/upload` | Scan an uploaded ZIP (multipart: `questionnaire` JSON, `file`) |
 | GET | `/api/scans/{id}` | Scan, findings and counters |
 | POST | `/api/findings/{id}/review` | `{action: approve \| edit_and_approve \| reject, reviewer, reason, final_patch?}` |
+| POST | `/api/regulations/match` | Which EU rules apply: `{offers[], eu_users, size, personal_data}` |
 | POST | `/api/scans/{id}/risk-review` | Confirm the risk tier: `{reviewer, reason}` |
 | POST | `/api/scans/{id}/pr` | Apply approved fixes and open the PR (`{access_token}` for private repos) |
 | GET | `/api/scans/{id}/patch` | ZIP scans only: download fixed files, patch and approvals |
@@ -75,6 +76,7 @@ curl -X POST http://localhost:8000/api/scans \
 | Page | Purpose |
 |---|---|
 | `/` | Dashboard: totals, scans that need attention, findings by check, recent activity, audit integrity |
+| `/explore` | Pick what your business offers and see which EU rules apply (AI Act, GDPR, NIS2, CRA and more), what each asks, and key dates |
 | `/new` | Three-step scan form for public repos, private repos (token) or an uploaded ZIP |
 | `/scans/{id}` | Review page: the four checks, diffs, approve / edit / reject, pull request or download |
 | `/audit` | Audit log with Verify and Export |

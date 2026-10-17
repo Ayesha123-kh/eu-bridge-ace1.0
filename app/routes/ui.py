@@ -7,7 +7,7 @@ from fastapi.templating import Jinja2Templates
 
 from app import config
 from app.db import connect
-from app.services import audit
+from app.services import audit, regulations
 
 router = APIRouter()
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "..", "templates"))
@@ -146,6 +146,13 @@ def _dashboard() -> dict:
 def dashboard(request: Request):
     return templates.TemplateResponse(request, "dashboard.html",
                                       {**_dashboard(), "active": "dashboard"})
+
+
+@router.get("/explore")
+def explore(request: Request):
+    return templates.TemplateResponse(request, "explore.html", {
+        "active": "explore", "offers": regulations.OFFERS, "tiers": regulations.AI_TIERS,
+        "reviewed_on": regulations.REVIEWED_ON})
 
 
 @router.get("/new")

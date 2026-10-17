@@ -250,3 +250,34 @@ input[type="password"]:focus { outline: 3px solid #7aa7e0; outline-offset: 0; bo
   .cs-row { grid-template-columns: 1fr; }
   .cs-row .state { text-align: left; }
 }
+
+/* Explore regulations */
+.explore { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 24px; align-items: start; }
+.qform { position: sticky; top: 16px; padding: 22px; }
+.results { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.results .count { font-size: 17px; }
+.subhead { font-size: 18px; margin-top: 8px; }
+.reg { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 22px; display: flex; flex-direction: column; gap: 8px; }
+.reg-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.reg h3 { font-size: 19px; }
+.reg .law { color: var(--muted); font-size: 14px; }
+.reg .why { margin: 0; padding-left: 20px; color: var(--ink); }
+.reg .why li { margin: 2px 0; }
+.reg details { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 12px; }
+.reg summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+.reg details h4 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 14px 0 4px; }
+.reg details ul { margin: 0; padding-left: 20px; }
+.reg details li { margin: 3px 0; }
+.reg .note { color: var(--muted); font-size: 14px; margin-top: 8px; }
+.others { color: var(--muted); font-size: 14px; }
+.tiers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.tier { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; }
+.tier p { color: var(--muted); font-size: 15px; margin-top: 4px; }
+.tier-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tier.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); }
+.tier .mine { margin-left: auto; font-size: 13px; font-weight: 600; color: var(--accent); }
+@media (max-width: 860px) {
+  .explore { grid-template-columns: 1fr; }
+  .qform { position: static; }
+  .tiers { grid-template-columns: 1fr; }
+}

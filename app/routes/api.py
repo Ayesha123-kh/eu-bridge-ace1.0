@@ -13,8 +13,8 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import ValidationError
 
 from app.db import connect
-from app.models import PrRequest, Questionnaire, ReviewRequest, RiskReviewRequest, ScanRequest
-from app.services import archive, audit, github, patcher, scanner, triage
+from app.models import PrRequest, Questionnaire, RegulationQuery, ReviewRequest, RiskReviewRequest, ScanRequest
+from app.services import archive, audit, github, patcher, regulations, scanner, triage
 
 router = APIRouter(prefix="/api")
 
@@ -358,6 +358,11 @@ def export_patch(scan_id: str):
             "Content-Disposition": f'attachment; filename="eu-bridge-fixes-{scan_id[:8]}.zip"'})
     finally:
         conn.close()
+
+
+@router.post("/regulations/match")
+def match_regulations(q: RegulationQuery):
+    return regulations.match(q.offers, q.eu_users, q.size, q.personal_data)
 
 
 @router.get("/audit/verify")
