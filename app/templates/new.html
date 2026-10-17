@@ -146,18 +146,18 @@
             <label class="chip"><input type="checkbox" name="ai_features" value="biometric_emotion"> Biometric or emotion recognition</label>
           </div>
         </fieldset>
-        <div class="field">
-          <label for="ai_provider">Which AI provider does it use?</label>
-          <select id="ai_provider">
-            <option value="unknown">Not sure</option>
-            <option value="openai">OpenAI</option>
-            <option value="anthropic">Anthropic</option>
-            <option value="google">Google</option>
-            <option value="groq">Groq</option>
-            <option value="self_hosted">Self-hosted model</option>
-            <option value="other">Another provider</option>
-          </select>
-        </div>
+        <fieldset class="field">
+          <legend>Which AI providers does it use?</legend>
+          <div class="chips">
+            <label class="chip"><input type="checkbox" name="ai_providers" value="openai"> OpenAI</label>
+            <label class="chip"><input type="checkbox" name="ai_providers" value="anthropic"> Anthropic</label>
+            <label class="chip"><input type="checkbox" name="ai_providers" value="google"> Google</label>
+            <label class="chip"><input type="checkbox" name="ai_providers" value="groq"> Groq</label>
+            <label class="chip"><input type="checkbox" name="ai_providers" value="self_hosted"> Self-hosted model</label>
+            <label class="chip"><input type="checkbox" name="ai_providers" value="other"> Another provider</label>
+          </div>
+          <p class="hint">Choose every provider your product sends data to. Leave empty if you are not sure.</p>
+        </fieldset>
         <fieldset class="field">
           <legend>What personal data does it handle?</legend>
           <div class="chips">

@@ -80,7 +80,7 @@
     $('domain').value = 'hiring';
     form.querySelector('input[name="ai_features"][value="chat"]').checked = true;
     form.querySelector('input[name="ai_features"][value="decisions_about_people"]').checked = true;
-    $('ai_provider').value = 'openai';
+    form.querySelector('input[name="ai_providers"][value="openai"]').checked = true;
     form.querySelector('input[name="data_types"][value="contact"]').checked = true;
     form.querySelector('input[name="human_review"][value="sometimes"]').checked = true;
     $('repo_url').focus();
@@ -100,9 +100,9 @@
   function questionnaire() {
     var features = checks('ai_features');
     var data = checks('data_types');
-    var provider = $('ai_provider').value;
-    var usesLlm = features.indexOf('chat') !== -1 || features.indexOf('text_generation') !== -1 ||
-      ['openai', 'anthropic', 'google', 'groq'].indexOf(provider) !== -1;
+    var providers = checks('ai_providers');
+    var external = providers.filter(function (p) { return ['openai', 'anthropic', 'google', 'groq', 'other'].indexOf(p) !== -1; });
+    var usesLlm = features.indexOf('chat') !== -1 || features.indexOf('text_generation') !== -1 || external.length > 0;
     return {
       product_name: $('product_name').value.trim(),
       description: $('description').value.trim(),
@@ -113,7 +113,8 @@
       domain: $('domain').value,
       ai_features: features,
       data_types: data,
-      ai_provider: provider,
+      ai_provider: providers[0] || 'unknown',
+      ai_providers: providers,
       human_review: radio('human_review')
     };
   }

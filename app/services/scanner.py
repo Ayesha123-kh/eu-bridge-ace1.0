@@ -159,8 +159,10 @@ def build_context(q: dict | None) -> str:
     if q.get("product_name"):
         lines.append(f"Product name: {q['product_name']}")
     lines.append(f"What it does: {q.get('description', '')}")
-    if q.get("ai_provider") in PROVIDERS:
-        lines.append(f"AI provider according to the team: {PROVIDERS[q['ai_provider']]}")
+    providers = q.get("ai_providers") or [q.get("ai_provider")]
+    names = [PROVIDERS[p] for p in providers if p in PROVIDERS]
+    if names:
+        lines.append("AI providers according to the team: " + ", ".join(names))
     if q.get("user_groups"):
         lines.append("Users: " + ", ".join(g.replace("_", " ") for g in q["user_groups"]))
     return ("Context from the team (for orientation only; judge the code itself):\n- "

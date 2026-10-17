@@ -205,3 +205,24 @@ def test_delete_uploaded_files(client):
     client.post(f"/api/findings/{fid}/review", json={"action": "approve", "reviewer": "A", "reason": "fine here"})
     assert client.get(f"/api/scans/{sid}/patch").status_code == 409
     assert "files_deleted" in [e["action"] for e in client.get("/api/audit/export").json()]
+
+
+def test_multiple_ai_providers_named_in_wording(client):
+    q = {**Q, "ai_features": ["chat"], "ai_providers": ["openai", "anthropic", "self_hosted"],
+         "data_types": ["contact"]}
+    sid = client.post("/api/assessments", json=q).json()["scan_id"]
+    gdpr = next(f for f in client.get(f"/api/scans/{sid}").json()["findings"] if f["rule_id"] == "GDPR-13")
+    assert "OpenAI and Anthropic" in gdpr["suggested_patch"] and "self-hosted" not in gdpr["suggested_patch"].lower()
+    assert "each provider" in gdpr["explanation"]
+
+
+def test_old_single_provider_field_still_works(client):
+    sid = client.post("/api/assessments", json={**Q, "ai_provider": "google"}).json()["scan_id"]
+    gdpr = next(f for f in client.get(f"/api/scans/{sid}").json()["findings"] if f["rule_id"] == "GDPR-13")
+    assert "Google" in gdpr["suggested_patch"]
+
+
+def test_self_hosted_only_needs_no_provider_notice(client):
+    q = {**Q, "uses_llm": False, "ai_features": ["recommendations"], "ai_providers": ["self_hosted"]}
+    sid = client.post("/api/assessments", json=q).json()["scan_id"]
+    assert "GDPR-13" not in [f["rule_id"] for f in client.get(f"/api/scans/{sid}").json()["findings"]]

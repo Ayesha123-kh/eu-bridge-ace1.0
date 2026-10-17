@@ -23,8 +23,21 @@ class Questionnaire(BaseModel):
     domain: Domain
     ai_features: list[AiFeature] = []
     data_types: list[DataType] = []
-    ai_provider: Provider = "unknown"
+    ai_provider: Provider = "unknown"  # kept for older clients; mirrors ai_providers[0]
+    ai_providers: list[Provider] = []
     human_review: Literal["always", "sometimes", "never", "not_applicable"] = "not_applicable"
+
+
+def _sync_providers(self):
+    if self.ai_providers and self.ai_provider == "unknown":
+        self.ai_provider = self.ai_providers[0]
+    elif self.ai_provider != "unknown" and not self.ai_providers:
+        self.ai_providers = [self.ai_provider]
+    return self
+
+
+Questionnaire._sync_providers = model_validator(mode="after")(_sync_providers)
+Questionnaire.model_rebuild(force=True)
 
 
 class ScanRequest(BaseModel):
