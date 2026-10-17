@@ -41,7 +41,8 @@ def summary(action: str, details: dict) -> str:
     if action == "scan_started":
         return details.get("repo", "")
     if action == "finding_created":
-        return f"{details.get('rule_id', '')} in {details.get('file_path', details.get('source', ''))}"
+        where = f"in {details['file_path']}" if details.get("file_path") else "from your answers"
+        return f"{details.get('rule_id', '')} {where}"
     if action in ("approved", "edited_and_approved", "rejected"):
         return f"{details.get('rule_id', '')}: {details.get('reason', '')}"
     if action in ("risk_reviewed", "escalated"):

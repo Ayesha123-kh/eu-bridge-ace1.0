@@ -74,15 +74,24 @@ curl -X POST http://localhost:8000/api/scans \
   -d '{"repo_url":"https://github.com/Ayesha123-kh/eu-bridge-demo-chatbot","questionnaire":{"description":"CV screening bot","uses_llm":true,"processes_personal_data":true,"domain":"hiring"}}'
 ```
 
+## Accounts and history
+
+- **Sign in is optional.** Anyone can use EU-Bridge as a guest. Creating an account (name, email, password) keeps history across devices, and scans made as a guest on that device move into the account.
+- **Each owner sees only their own scans,** dashboard and audit entries. Other people get a 404 for your scan links.
+- **Signed-in decisions are recorded under the account name,** and the server ignores any other name sent by the browser.
+- Passwords are hashed with scrypt, sessions are random tokens stored hashed, and cookies are HttpOnly and SameSite=Lax.
+- **Storage:** SQLite lives in `DATA_DIR`. Mount a persistent volume there (Railway: volume at `/data`, `DATA_DIR=/data`), otherwise history is lost on every redeploy.
+
 ## Pages
 
 | Page | Purpose |
 |---|---|
-| `/` | Dashboard: totals, scans that need attention, findings by check, recent activity, audit integrity |
+| `/` | Interactive dashboard: clickable totals, search and filters, scan history by scan or company, expandable details, findings by check, recent activity |
+| `/signin` | Sign in or create an account |
 | `/explore` | Pick what your business offers and see which EU rules apply (AI Act, GDPR, NIS2, CRA and more), what each asks, and key dates |
 | `/new` | Three-step form: public repo, private code (token or ZIP) or no code (assessment) |
 | `/scans/{id}` | Review page: the four checks, diffs, approve / edit / reject, pull request or download |
-| `/audit` | Audit log with Verify and Export |
+| `/audit` | Audit log with filters by company, person and action, Verify and Export |
 
 ## Not sharing code
 
