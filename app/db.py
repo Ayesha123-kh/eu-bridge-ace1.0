@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS scans (
     risk_reviewed_by TEXT,
     risk_reviewed_reason TEXT,
     risk_reviewed_at TEXT,
+    source TEXT NOT NULL DEFAULT 'public',
+    source_name TEXT,
     created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS findings (
@@ -39,6 +41,12 @@ CREATE TABLE IF NOT EXISTS findings (
     reviewer TEXT,
     review_reason TEXT,
     reviewed_at TEXT
+);
+CREATE TABLE IF NOT EXISTS scan_files (
+    scan_id TEXT NOT NULL,
+    path TEXT NOT NULL,
+    content TEXT NOT NULL,
+    PRIMARY KEY (scan_id, path)
 );
 CREATE TABLE IF NOT EXISTS audit_log (
     seq INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,6 +73,10 @@ def init_db() -> None:
     conn = connect()
     try:
         conn.executescript(SCHEMA)
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(scans)")}
+        for name, ddl in (("source", "TEXT NOT NULL DEFAULT 'public'"), ("source_name", "TEXT")):
+            if name not in cols:
+                conn.execute(f"ALTER TABLE scans ADD COLUMN {name} {ddl}")
         conn.commit()
     finally:
         conn.close()

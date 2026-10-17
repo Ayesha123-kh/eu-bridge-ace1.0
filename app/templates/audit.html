@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Audit log · {{ app_name }}{% endblock %}
+{% block content %}
+<section class="intro">
+  <h1>Audit log</h1>
+  <p class="lede">Every scan, AI suggestion and human decision is recorded here. Each entry is chained to the one before it, so a changed entry is detected when you verify.</p>
+</section>
+
+<div class="toolbar">
+  <button class="btn primary" id="verify-btn" type="button">Verify log</button>
+  <a class="btn" href="/api/audit/export">Export as JSON</a>
+</div>
+<div id="verify-result" class="callout" hidden role="status"></div>
+
+{% if entries %}
+<div class="table-wrap">
+  <table class="audit">
+    <thead><tr><th class="num">#</th><th>Time</th><th>Who</th><th>What happened</th><th>Detail</th><th>Fingerprint</th></tr></thead>
+    <tbody>
+    {% for e in entries %}
+      <tr>
+        <td class="num">{{ e.seq }}</td>
+        <td class="nowrap">{{ e.when }}</td>
+        <td>{% if e.human %}<strong>{{ e.actor }}</strong>{% else %}{{ e.actor }}{% endif %}</td>
+        <td>{% if e.scan_id %}<a href="/scans/{{ e.scan_id }}">{{ e.action }}</a>{% else %}{{ e.action }}{% endif %}</td>
+        <td class="detail">{{ e.summary }}</td>
+        <td><code>{{ e.hash }}</code></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="empty">No entries yet. Entries appear after the first scan.</p>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="/static/audit.js"></script>{% endblock %}

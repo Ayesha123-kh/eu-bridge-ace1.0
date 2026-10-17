@@ -23,9 +23,9 @@ def parse_repo_url(url: str) -> tuple[str, str]:
     return m.group(1), m.group(2)
 
 
-async def _request(method: str, path: str, **kwargs):
+async def _request(method: str, path: str, token: str | None = None, **kwargs):
     headers = {
-        "Authorization": f"Bearer {config.GITHUB_TOKEN}",
+        "Authorization": f"Bearer {(token or config.GITHUB_TOKEN)}",
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
     }
@@ -39,28 +39,32 @@ async def _request(method: str, path: str, **kwargs):
             msg = resp.json().get("message", "")
         except ValueError:
             msg = ""
-        raise GitHubError(f"GitHub returned {resp.status_code}: {msg}".strip(), resp.status_code)
+        hint = ""
+        if resp.status_code in (401, 403, 404):
+            hint = (" Check the repository URL and that the access token can reach this "
+                    "repository (Contents and Pull requests permissions).")
+        raise GitHubError(f"GitHub returned {resp.status_code}: {msg}.{hint}".strip(), resp.status_code)
     return resp.json()
 
 
-async def get_repo(owner: str, repo: str) -> dict:
-    return await _request("GET", f"/repos/{owner}/{repo}")
+async def get_repo(owner: str, repo: str, token: str | None = None) -> dict:
+    return await _request("GET", f"/repos/{owner}/{repo}", token=token)
 
 
-async def get_branch_sha(owner: str, repo: str, branch: str) -> str:
-    data = await _request("GET", f"/repos/{owner}/{repo}/git/ref/heads/{branch}")
+async def get_branch_sha(owner: str, repo: str, branch: str, token: str | None = None) -> str:
+    data = await _request("GET", f"/repos/{owner}/{repo}/git/ref/heads/{branch}", token=token)
     return data["object"]["sha"]
 
 
-async def list_tree(owner: str, repo: str, ref: str) -> list[dict]:
-    data = await _request("GET", f"/repos/{owner}/{repo}/git/trees/{ref}",
+async def list_tree(owner: str, repo: str, ref: str, token: str | None = None) -> list[dict]:
+    data = await _request("GET", f"/repos/{owner}/{repo}/git/trees/{ref}", token=token,
                           params={"recursive": "1"})
     return [t for t in data.get("tree", []) if t.get("type") == "blob"]
 
 
-async def get_file(owner: str, repo: str, path: str, ref: str) -> tuple[str, str]:
+async def get_file(owner: str, repo: str, path: str, ref: str, token: str | None = None) -> tuple[str, str]:
     """Returns (text, blob_sha)."""
-    data = await _request("GET", f"/repos/{owner}/{repo}/contents/{path}", params={"ref": ref})
+    data = await _request("GET", f"/repos/{owner}/{repo}/contents/{path}", token=token, params={"ref": ref})
     if data.get("encoding") != "base64":
         raise GitHubError(f"File {path} is too large or not readable via the contents API.")
     try:
@@ -70,14 +74,14 @@ async def get_file(owner: str, repo: str, path: str, ref: str) -> tuple[str, str
     return text, data["sha"]
 
 
-async def create_branch(owner: str, repo: str, name: str, from_sha: str) -> None:
-    await _request("POST", f"/repos/{owner}/{repo}/git/refs",
+async def create_branch(owner: str, repo: str, name: str, from_sha: str, token: str | None = None) -> None:
+    await _request("POST", f"/repos/{owner}/{repo}/git/refs", token=token,
                    json={"ref": f"refs/heads/{name}", "sha": from_sha})
 
 
 async def put_file(owner: str, repo: str, path: str, content: str, sha: str,
-                   branch: str, message: str) -> None:
-    await _request("PUT", f"/repos/{owner}/{repo}/contents/{path}", json={
+                   branch: str, message: str, token: str | None = None) -> None:
+    await _request("PUT", f"/repos/{owner}/{repo}/contents/{path}", token=token, json={
         "message": message,
         "content": base64.b64encode(content.encode("utf-8")).decode(),
         "sha": sha,
@@ -85,7 +89,8 @@ async def put_file(owner: str, repo: str, path: str, content: str, sha: str,
     })
 
 
-async def create_pr(owner: str, repo: str, head: str, base: str, title: str, body: str) -> str:
-    data = await _request("POST", f"/repos/{owner}/{repo}/pulls",
+async def create_pr(owner: str, repo: str, head: str, base: str, title: str, body: str,
+                    token: str | None = None) -> str:
+    data = await _request("POST", f"/repos/{owner}/{repo}/pulls", token=token,
                           json={"title": title, "head": head, "base": base, "body": body})
     return data["html_url"]

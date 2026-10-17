@@ -1,0 +1,123 @@
+<svg width="1260" height="500" viewBox="0 0 1260 500" role="img" aria-label="EU-Bridge workflow: a reviewer submits a repo, the app reads it from GitHub and asks OpenAI for findings, the reviewer approves each fix, and the app opens a pull request on GitHub, with every step logged in a hash-chained audit log." xmlns="http://www.w3.org/2000/svg">
+<style>
+text{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
+svg{color:#17202a}
+.bg{fill:#ffffff}
+.lane{fill:#ebeff3}.auditband{fill:#e7efe9}
+.lanelabel{font:600 12px sans-serif;fill:#5b6672;text-transform:uppercase;letter-spacing:.06em}
+.auditnote{font:400 12px sans-serif;fill:#1f5c3a}
+.auditkey{font:500 10.5px monospace;fill:#1f5c3a}
+.drop{stroke:#1f5c3a;stroke-width:1;stroke-dasharray:3 3;opacity:.7}
+.dot{fill:#1f5c3a}
+.arrow{fill:none;stroke:currentColor;stroke-width:1.4;opacity:.65}
+.box rect{fill:#fff;stroke:#cfd6de;stroke-width:1.5}
+.box.human rect{fill:#e3ebff;stroke:#1f4fd1}
+.box .bt{font:500 11.5px sans-serif;fill:#17202a}
+.box .num{font:500 10px monospace;fill:#5b6672}
+.box.human .num{fill:#1f4fd1}
+@media (prefers-color-scheme:dark){
+svg{color:#e6ebf0}.bg{fill:#0d1117}
+.lane{fill:#172029}.auditband{fill:#172a20}
+.lanelabel{fill:#98a4b0}.auditnote,.auditkey{fill:#7fd0a3}
+.drop{stroke:#7fd0a3}.dot{fill:#7fd0a3}
+.box rect{fill:#1d2832;stroke:#34404c}
+.box.human rect{fill:#20315f;stroke:#8fb0ff}
+.box .bt{fill:#e6ebf0}.box .num{fill:#98a4b0}.box.human .num{fill:#8fb0ff}}
+</style>
+<rect class="bg" width="1260" height="500" rx="8"/>
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
+<rect class="lane" x="0" y="15" width="1260" height="90" rx="4"/>
+<text class="lanelabel" x="14" y="64">Reviewer</text>
+<rect class="lane" x="0" y="115" width="1260" height="90" rx="4"/>
+<text class="lanelabel" x="14" y="164">EU-Bridge app</text>
+<rect class="lane" x="0" y="215" width="1260" height="90" rx="4"/>
+<text class="lanelabel" x="14" y="264">OpenAI</text>
+<rect class="lane" x="0" y="315" width="1260" height="90" rx="4"/>
+<text class="lanelabel" x="14" y="364">GitHub</text>
+<rect class="auditband" x="0" y="425" width="1260" height="56" rx="4"/>
+<text class="lanelabel" x="14" y="450">Audit log</text>
+<text class="auditnote" x="150" y="450">Every decision is written as a hash-chained entry. Verify recomputes the chain and reports the first row that was changed.</text>
+<line class="drop" x1="254" y1="186.0" x2="254" y2="425"/>
+<circle class="dot" cx="254" cy="425" r="3.5"/>
+<text class="auditkey" x="254" y="470" text-anchor="middle">scan_started</text>
+<line class="drop" x1="566" y1="286.0" x2="566" y2="425"/>
+<circle class="dot" cx="566" cy="425" r="3.5"/>
+<text class="auditkey" x="566" y="470" text-anchor="middle">finding_created</text>
+<line class="drop" x1="670" y1="186.0" x2="670" y2="425"/>
+<circle class="dot" cx="670" cy="425" r="3.5"/>
+<text class="auditkey" x="670" y="470" text-anchor="middle">escalated</text>
+<line class="drop" x1="774" y1="86.0" x2="774" y2="425"/>
+<circle class="dot" cx="774" cy="425" r="3.5"/>
+<text class="auditkey" x="774" y="470" text-anchor="middle">risk_reviewed</text>
+<line class="drop" x1="878" y1="86.0" x2="878" y2="425"/>
+<circle class="dot" cx="878" cy="425" r="3.5"/>
+<text class="auditkey" x="878" y="470" text-anchor="middle">approved / rejected</text>
+<line class="drop" x1="1086" y1="386.0" x2="1086" y2="425"/>
+<circle class="dot" cx="1086" cy="425" r="3.5"/>
+<text class="auditkey" x="1086" y="470" text-anchor="middle">pr_opened</text>
+<path class="arrow" d="M196.0 60 H202.0 V160 H207.0" marker-end="url(#ar)"/>
+<path class="arrow" d="M300.0 160 H306.0 V360 H311.0" marker-end="url(#ar)"/>
+<path class="arrow" d="M404.0 360 H410.0 V160 H415.0" marker-end="url(#ar)"/>
+<path class="arrow" d="M508.0 160 H514.0 V260 H519.0" marker-end="url(#ar)"/>
+<path class="arrow" d="M612.0 260 H618.0 V160 H623.0" marker-end="url(#ar)"/>
+<path class="arrow" d="M716.0 160 H722.0 V60 H727.0" marker-end="url(#ar)"/>
+<path class="arrow" d="M820.0 60 H831.0" marker-end="url(#ar)"/>
+<path class="arrow" d="M924.0 60 H930.0 V160 H935.0" marker-end="url(#ar)"/>
+<path class="arrow" d="M1028.0 160 H1034.0 V360 H1039.0" marker-end="url(#ar)"/>
+<path class="arrow" d="M1132.0 360 H1138.0 V60 H1143.0" marker-end="url(#ar)"/>
+<g class="box human"><rect x="104.0" y="34.0" width="92" height="52" rx="6"/>
+<text class="num" x="110.0" y="46.0">1</text>
+<text class="bt" x="150" y="61.0" text-anchor="middle">Enter repo URL</text>
+<text class="bt" x="150" y="75.0" text-anchor="middle">+ questionnaire</text>
+</g>
+<g class="box sys"><rect x="208.0" y="134.0" width="92" height="52" rx="6"/>
+<text class="num" x="214.0" y="146.0">2</text>
+<text class="bt" x="254" y="161.0" text-anchor="middle">Validate URL,</text>
+<text class="bt" x="254" y="175.0" text-anchor="middle">rate limit</text>
+</g>
+<g class="box sys"><rect x="312.0" y="334.0" width="92" height="52" rx="6"/>
+<text class="num" x="318.0" y="346.0">3</text>
+<text class="bt" x="358" y="361.0" text-anchor="middle">Read file tree</text>
+<text class="bt" x="358" y="375.0" text-anchor="middle">and files</text>
+</g>
+<g class="box sys"><rect x="416.0" y="134.0" width="92" height="52" rx="6"/>
+<text class="num" x="422.0" y="146.0">4</text>
+<text class="bt" x="462" y="161.0" text-anchor="middle">Pick files with</text>
+<text class="bt" x="462" y="175.0" text-anchor="middle">AI-related code</text>
+</g>
+<g class="box sys"><rect x="520.0" y="234.0" width="92" height="52" rx="6"/>
+<text class="num" x="526.0" y="246.0">5</text>
+<text class="bt" x="566" y="261.0" text-anchor="middle">Draft findings</text>
+<text class="bt" x="566" y="275.0" text-anchor="middle">and fixes</text>
+</g>
+<g class="box sys"><rect x="624.0" y="134.0" width="92" height="52" rx="6"/>
+<text class="num" x="630.0" y="146.0">6</text>
+<text class="bt" x="670" y="161.0" text-anchor="middle">Check snippets,</text>
+<text class="bt" x="670" y="175.0" text-anchor="middle">triage risk</text>
+</g>
+<g class="box human"><rect x="728.0" y="34.0" width="92" height="52" rx="6"/>
+<text class="num" x="734.0" y="46.0">7</text>
+<text class="bt" x="774" y="61.0" text-anchor="middle">Confirm</text>
+<text class="bt" x="774" y="75.0" text-anchor="middle">risk tier</text>
+</g>
+<g class="box human"><rect x="832.0" y="34.0" width="92" height="52" rx="6"/>
+<text class="num" x="838.0" y="46.0">8</text>
+<text class="bt" x="878" y="61.0" text-anchor="middle">Approve, edit</text>
+<text class="bt" x="878" y="75.0" text-anchor="middle">or reject each</text>
+</g>
+<g class="box sys"><rect x="936.0" y="134.0" width="92" height="52" rx="6"/>
+<text class="num" x="942.0" y="146.0">9</text>
+<text class="bt" x="982" y="161.0" text-anchor="middle">Gate: none</text>
+<text class="bt" x="982" y="175.0" text-anchor="middle">pending, 1+ OK</text>
+</g>
+<g class="box sys"><rect x="1040.0" y="334.0" width="92" height="52" rx="6"/>
+<text class="num" x="1046.0" y="346.0">10</text>
+<text class="bt" x="1086" y="361.0" text-anchor="middle">Branch, commit,</text>
+<text class="bt" x="1086" y="375.0" text-anchor="middle">open PR</text>
+</g>
+<g class="box human"><rect x="1144.0" y="34.0" width="92" height="52" rx="6"/>
+<text class="num" x="1150.0" y="46.0">11</text>
+<text class="bt" x="1190" y="61.0" text-anchor="middle">Review and</text>
+<text class="bt" x="1190" y="75.0" text-anchor="middle">merge PR</text>
+</g>
+</svg>

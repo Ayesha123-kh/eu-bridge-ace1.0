@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% block title %}New scan · {{ app_name }}{% endblock %}
+{% block content %}
+<section class="intro">
+  <h1>Scan a repository for EU launch blockers</h1>
+  <p class="lede">EU-Bridge reads your code for four EU AI Act and GDPR issues and drafts a fix for each one. Nothing is changed until a named person approves it.</p>
+</section>
+
+<div class="split">
+  <section class="panel" id="scan-panel">
+    <ol class="steps" aria-label="Progress">
+      <li data-dot="1" class="on">Your code</li>
+      <li data-dot="2">The product</li>
+      <li data-dot="3">Data and AI</li>
+    </ol>
+
+    <form id="scan-form" novalidate>
+      <!-- Step 1 -->
+      <section class="step" data-step="1">
+        <fieldset class="field">
+          <legend>Where is the code?</legend>
+          <div class="options three">
+            <label class="option"><input type="radio" name="visibility" value="public" checked>
+              <span><strong>Public repository</strong><small>Anyone can see it on GitHub. We read it directly.</small></span></label>
+            <label class="option"><input type="radio" name="visibility" value="private">
+              <span><strong>Private code</strong><small>Not public. Give us read access or upload a ZIP.</small></span></label>
+            <label class="option"><input type="radio" name="visibility" value="assessment">
+              <span><strong>No code</strong><small>Answer questions and get a checklist. No code is shared.</small></span></label>
+          </div>
+        </fieldset>
+
+        <div id="public-box">
+          <div class="field">
+            <label for="repo_url">GitHub repository</label>
+            <input id="repo_url" type="url" inputmode="url" autocomplete="off" placeholder="https://github.com/owner/repository">
+            <p class="hint"><a href="#" id="use-demo">Use the demo chatbot</a> to try it quickly. You can scan any public repository, but only open pull requests on code you own or have permission to change. Check its licence first.</p>
+          </div>
+        </div>
+
+        <div id="assess-box" hidden>
+          <div class="callout">
+            <h2>No code needed</h2>
+            <p>You answer the next two pages about your product. EU-Bridge returns the risk tier, the rules that apply, and a checklist of changes with ready-to-use wording. Nothing is read from your code or sent to an AI provider.</p>
+          </div>
+        </div>
+
+        <div id="private-box" hidden>
+          <fieldset class="field">
+            <legend>How should we get the code?</legend>
+            <div class="options">
+              <label class="option"><input type="radio" name="method" value="token" checked>
+                <span><strong>Access token</strong><small>We open a pull request with the fixes.</small></span></label>
+              <label class="option"><input type="radio" name="method" value="zip">
+                <span><strong>Upload a ZIP</strong><small>You download the fixed files. No GitHub access needed.</small></span></label>
+            </div>
+          </fieldset>
+
+          <div class="callout privacy">
+            <h2>What happens to your code</h2>
+            <ul>
+              <li>Only source code files are read. Secrets such as API keys and passwords are masked first.</li>
+              <li>The relevant files are sent to OpenAI to find the issues. Nothing else is shared.</li>
+              <li>Your token is never stored or logged. Uploaded ZIP files can be deleted from this server after you download the fixes.</li>
+              <li>If you would rather share nothing, choose <strong>No code</strong> above.</li>
+            </ul>
+          </div>
+
+          <div id="token-box">
+            <div class="field">
+              <label for="private_url">Private repository URL</label>
+              <input id="private_url" type="url" inputmode="url" autocomplete="off" placeholder="https://github.com/your-company/repository">
+            </div>
+            <div class="field">
+              <label for="access_token">Access token</label>
+              <input id="access_token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…">
+              <p class="hint">Create a fine-grained token limited to this one repository, with Contents and Pull requests set to read and write. It is used for this scan and is never stored or logged. You will enter it again to open the pull request.</p>
+            </div>
+          </div>
+
+          <div id="zip-box" hidden>
+            <div class="field">
+              <label for="zip_file">ZIP of your source code</label>
+              <input id="zip_file" type="file" accept=".zip,application/zip">
+              <p class="hint">Source code only, up to 8 MB. Files are kept on this server only to prepare your fixes. Secrets such as <code>.env</code> files are ignored.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Step 2 -->
+      <section class="step" data-step="2" hidden>
+        <div class="field">
+          <label for="product_name">Product name <span class="optional">(optional)</span></label>
+          <input id="product_name" type="text" maxlength="120" placeholder="For example: HireBot">
+        </div>
+        <div class="field">
+          <label for="description">What does the product do?</label>
+          <textarea id="description" rows="3" maxlength="1000" placeholder="For example: an assistant that answers customer questions"></textarea>
+        </div>
+        <fieldset class="field">
+          <legend>Who uses it?</legend>
+          <div class="chips">
+            <label class="chip"><input type="checkbox" name="user_groups" value="consumers"> Consumers</label>
+            <label class="chip"><input type="checkbox" name="user_groups" value="business_customers"> Business customers</label>
+            <label class="chip"><input type="checkbox" name="user_groups" value="employees"> Employees</label>
+            <label class="chip"><input type="checkbox" name="user_groups" value="job_applicants"> Job applicants</label>
+            <label class="chip"><input type="checkbox" name="user_groups" value="students"> Students</label>
+            <label class="chip"><input type="checkbox" name="user_groups" value="patients"> Patients</label>
+            <label class="chip"><input type="checkbox" name="user_groups" value="children"> Children under 16</label>
+          </div>
+        </fieldset>
+        <fieldset class="field">
+          <legend>Do you have, or plan to have, users in the EU?</legend>
+          <div class="choices">
+            <label class="choice"><input type="radio" name="eu_users" value="yes"> Yes, today</label>
+            <label class="choice"><input type="radio" name="eu_users" value="planned" checked> Planning to</label>
+            <label class="choice"><input type="radio" name="eu_users" value="no"> No</label>
+          </div>
+          <p class="hint">The EU AI Act applies to products offered in the EU, wherever the company is based.</p>
+        </fieldset>
+        <div class="field">
+          <label for="domain">Where is it used?</label>
+          <select id="domain">
+            <option value="other">None of the areas below</option>
+            <option value="hiring">Hiring or HR</option>
+            <option value="credit">Credit or lending</option>
+            <option value="education">Education or exam scoring</option>
+            <option value="health">Health</option>
+            <option value="biometrics">Biometrics</option>
+            <option value="critical_infrastructure">Critical infrastructure</option>
+          </select>
+          <p class="hint">The areas listed are treated as possibly high-risk under the EU AI Act. A person must confirm the risk tier.</p>
+        </div>
+      </section>
+
+      <!-- Step 3 -->
+      <section class="step" data-step="3" hidden>
+        <fieldset class="field">
+          <legend>What does the AI do?</legend>
+          <div class="chips">
+            <label class="chip"><input type="checkbox" name="ai_features" value="chat"> Chats with users</label>
+            <label class="chip"><input type="checkbox" name="ai_features" value="text_generation"> Writes text</label>
+            <label class="chip"><input type="checkbox" name="ai_features" value="image_audio_video"> Creates images, audio or video</label>
+            <label class="chip"><input type="checkbox" name="ai_features" value="recommendations"> Recommends or ranks</label>
+            <label class="chip"><input type="checkbox" name="ai_features" value="decisions_about_people"> Makes or supports decisions about people</label>
+            <label class="chip"><input type="checkbox" name="ai_features" value="biometric_emotion"> Biometric or emotion recognition</label>
+          </div>
+        </fieldset>
+        <fieldset class="field">
+          <legend>Which AI providers does it use?</legend>
+          <div class="chips">
+            <label class="chip"><input type="checkbox" name="ai_providers" value="openai"> OpenAI</label>
+            <label class="chip"><input type="checkbox" name="ai_providers" value="anthropic"> Anthropic</label>
+            <label class="chip"><input type="checkbox" name="ai_providers" value="google"> Google</label>
+            <label class="chip"><input type="checkbox" name="ai_providers" value="groq"> Groq</label>
+            <label class="chip"><input type="checkbox" name="ai_providers" value="self_hosted"> Self-hosted model</label>
+            <label class="chip"><input type="checkbox" name="ai_providers" value="other"> Another provider</label>
+          </div>
+          <p class="hint">Choose every provider your product sends data to. Leave empty if you are not sure.</p>
+        </fieldset>
+        <fieldset class="field">
+          <legend>What personal data does it handle?</legend>
+          <div class="chips">
+            <label class="chip"><input type="checkbox" name="data_types" value="contact"> Names, emails, phone numbers</label>
+            <label class="chip"><input type="checkbox" name="data_types" value="identity"> ID or account details</label>
+            <label class="chip"><input type="checkbox" name="data_types" value="financial"> Financial data</label>
+            <label class="chip"><input type="checkbox" name="data_types" value="health"> Health data</label>
+            <label class="chip"><input type="checkbox" name="data_types" value="biometric"> Biometric data</label>
+            <label class="chip"><input type="checkbox" name="data_types" value="children"> Children's data</label>
+          </div>
+          <p class="hint">Leave all unchecked if it handles none.</p>
+        </fieldset>
+        <fieldset class="field">
+          <legend>Does a person review the AI's output before it affects someone?</legend>
+          <div class="choices">
+            <label class="choice"><input type="radio" name="human_review" value="always"> Always</label>
+            <label class="choice"><input type="radio" name="human_review" value="sometimes"> Sometimes</label>
+            <label class="choice"><input type="radio" name="human_review" value="never"> Never</label>
+            <label class="choice"><input type="radio" name="human_review" value="not_applicable" checked> Not applicable</label>
+          </div>
+        </fieldset>
+      </section>
+
+      <p class="error" id="form-error" role="alert" hidden></p>
+      <div class="nav-buttons">
+        <button class="btn" type="button" id="back-btn" hidden>Back</button>
+        <button class="btn primary" type="button" id="next-btn">Continue</button>
+        <button class="btn primary" type="submit" id="submit-btn" hidden>Scan code</button>
+      </div>
+    </form>
+
+    <div id="scanning" class="scanning" hidden aria-live="polite">
+      <div class="spinner" aria-hidden="true"></div>
+      <h2>Scanning <span id="scanning-repo"></span></h2>
+      <p id="scanning-text">The AI is reviewing the code. This usually takes 20 to 60 seconds. Keep this page open.</p>
+    </div>
+  </section>
+
+  <aside class="side">
+    <h2>What we check</h2>
+    <dl class="checks">
+      <dt>AI disclosure</dt><dd>Chat users are told they are talking to an AI. EU AI Act, Art. 50(1).</dd>
+      <dt>Third-party AI notice</dt><dd>Users are told their messages go to an outside AI provider. GDPR, Art. 13.</dd>
+      <dt>Personal data in logs</dt><dd>Emails and messages are not written to logs. GDPR, Art. 5(1)(c).</dd>
+      <dt>Risk tier</dt><dd>Products used in hiring, credit, health and similar areas are escalated to a person. EU AI Act, Annex III.</dd>
+    </dl>
+  </aside>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/new.js"></script>{% endblock %}

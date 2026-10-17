@@ -16,15 +16,15 @@ def client(db, monkeypatch):
     api._hits.clear()
     calls = {"puts": [], "prs": []}
 
-    async def get_repo(o, r): return {"default_branch": "main"}
-    async def get_branch_sha(o, r, b): return "headsha"
-    async def get_file(o, r, p, ref): return FILE, "blobsha"
-    async def create_branch(o, r, n, s): calls["branch"] = n
-    async def put_file(o, r, path, content, sha, branch, msg): calls["puts"].append((path, content, msg))
-    async def create_pr(o, r, head, base, title, body):
+    async def get_repo(o, r, **kw): return {"default_branch": "main"}
+    async def get_branch_sha(o, r, b, **kw): return "headsha"
+    async def get_file(o, r, p, ref, **kw): return FILE, "blobsha"
+    async def create_branch(o, r, n, s, **kw): calls["branch"] = n
+    async def put_file(o, r, path, content, sha, branch, msg, **kw): calls["puts"].append((path, content, msg))
+    async def create_pr(o, r, head, base, title, body, **kw):
         calls["prs"].append(body)
         return "https://github.com/o/r/pull/1"
-    async def scan_repo(o, r, ref):
+    async def scan_repo(o, r, ref, **kw):
         fs = scanner.process_findings([
             scanner.RawFinding(rule_id="GDPR-5-1C", title="PII in log", explanation="e",
                                severity="high", confidence=0.9, file_path="server.py",
@@ -34,13 +34,18 @@ def client(db, monkeypatch):
                                severity="medium", confidence=0.9, file_path="server.py",
                                original_snippet="NOT IN FILE", suggested_patch="x"),
         ], {"server.py": FILE})
-        return {"findings": fs, "risk_signals": [], "stats": {}, "warnings": []}
+        return {"findings": fs, "risk_signals": [], "stats": {}, "warnings": [],
+                "files": {"server.py": FILE}}
 
     for name, fn in dict(get_repo=get_repo, get_branch_sha=get_branch_sha, get_file=get_file,
                          create_branch=create_branch, put_file=put_file,
                          create_pr=create_pr).items():
         monkeypatch.setattr(github, name, fn)
+    async def scan_archive(files, questionnaire=None):
+        return await scan_repo("u", "r", "x")
+
     monkeypatch.setattr(scanner, "scan_repo", scan_repo)
+    monkeypatch.setattr(scanner, "scan_archive", scan_archive)
     c = TestClient(app)
     c.calls = calls
     return c
@@ -105,3 +110,20 @@ def test_rejects_non_github_url(client):
     r = client.post("/api/scans", json={"repo_url": "https://evil.com/o/r",
                                         "questionnaire": QUESTIONNAIRE})
     assert r.status_code == 400
+
+
+def test_ui_pages_render(client):
+    for path, needle in (("/new", "Scan a repository"), ("/", "Dashboard"), ("/audit", "Audit log"),
+                         ("/scans/abc", 'data-scan-id="abc"')):
+        r = client.get(path)
+        assert r.status_code == 200 and needle in r.text
+        assert "reviewed by a human" in r.text and "not legal advice" in r.text
+    assert client.get("/static/app.css").status_code == 200
+    assert client.get("/static/review.js").status_code == 200
+
+
+def test_audit_page_lists_entries(client):
+    client.post("/api/scans", json={"repo_url": "https://github.com/o/r",
+                                    "questionnaire": QUESTIONNAIRE})
+    page = client.get("/audit").text
+    assert "Scan started" in page and "AI suggested a fix" in page
