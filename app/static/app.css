@@ -290,3 +290,53 @@ input[type="password"]:focus { outline: 3px solid #7aa7e0; outline-offset: 0; bo
 pre.suggest { margin: 0; padding: 12px 14px; background: #fff; border: 1px solid var(--line); border-radius: 6px; font: 13.5px/1.6 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
 .meta-note { color: var(--muted); font-size: 14px; }
 .danger-link { color: var(--bad); }
+
+/* Accounts */
+.account { display: flex; align-items: center; gap: 12px; margin-left: 8px; }
+.account .who { font-weight: 500; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.authwrap { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 24px; align-items: start; }
+.authcard { padding: 28px; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 0 0 22px; }
+.tabs button { font: 500 16px var(--sans); background: none; border: 0; border-bottom: 3px solid transparent; padding: 10px 14px; color: var(--muted); cursor: pointer; margin-bottom: -1px; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+@media (max-width: 760px) { .authwrap { grid-template-columns: 1fr; } }
+
+/* Interactive dashboard and audit filters */
+button.stat { text-align: left; font: inherit; color: inherit; cursor: pointer; }
+button.stat:hover { border-color: var(--accent); }
+button.stat[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.resulthead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 6px; overflow: hidden; background: #fff; }
+.seg button { font: 500 14px var(--sans); border: 0; background: #fff; padding: 8px 16px; min-height: 38px; cursor: pointer; color: var(--muted); }
+.seg button + button { border-left: 1px solid var(--line-strong); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.fgroup { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
+.fgroup.grow { flex: 1 1 240px; }
+.fgroup label { font-size: 13px; color: var(--muted); font-weight: 500; }
+input[type="search"] { width: 100%; font: inherit; color: var(--ink); background: #fff; border: 1px solid var(--line-strong); border-radius: 6px; padding: 10px 12px; min-height: 44px; }
+input[type="search"]:focus { outline: 3px solid #7aa7e0; outline-offset: 0; border-color: var(--accent); }
+.chiprow { display: flex; flex-wrap: wrap; gap: 8px; }
+.fchip { font: 500 14px var(--sans); border: 1px solid var(--line-strong); background: #fff; border-radius: 999px; padding: 7px 14px; min-height: 38px; cursor: pointer; color: var(--ink); }
+.fchip .cnt { color: var(--muted); margin-left: 4px; font-variant-numeric: tabular-nums; }
+.fchip[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.count { color: var(--muted); font-size: 14px; margin: 0; }
+.dtable td .tag { margin-left: 8px; }
+.dtable .why { color: var(--warn); font-size: 13.5px; }
+tr.row.open td { background: #fafbfc; }
+.muted { color: var(--muted); }
+.detail-row td { background: #fafbfc; padding: 0; }
+.detail { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 24px; padding: 16px 18px 20px; }
+.detail h4 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 6px; }
+.detail p { margin: 0 0 6px; font-size: 15px; }
+.detail-actions { display: flex; gap: 8px; margin-top: 10px !important; flex-wrap: wrap; }
+table.mini { font-size: 14px; background: #fff; border: 1px solid var(--line); border-radius: 6px; }
+table.mini th, table.mini td { padding: 6px 10px; }
+.code { font: 12px var(--mono); color: var(--muted); }
+.hist { margin: 0; padding-left: 18px; }
+.hist li { margin: 3px 0; }
+button.checkrow { width: 100%; text-align: left; font: inherit; color: inherit; background: none; border: 1px solid transparent; border-radius: 6px; padding: 8px 10px; margin: -8px -10px; cursor: pointer; }
+button.checkrow:hover { background: var(--bg); }
+button.checkrow[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.checkrows { gap: 14px; }
+@media (max-width: 760px) { .detail { grid-template-columns: 1fr; } .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

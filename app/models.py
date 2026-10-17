@@ -92,3 +92,14 @@ class RegulationQuery(BaseModel):
     eu_users: Literal["yes", "planned", "no"] = "planned"
     size: Literal["micro", "small", "medium", "large"] = "small"
     personal_data: bool = True
+
+
+class SignupRequest(BaseModel):
+    name: str = Field(max_length=80)
+    email: str = Field(max_length=200)
+    password: str = Field(max_length=200, repr=False)
+
+
+class LoginRequest(BaseModel):
+    email: str = Field(max_length=200)
+    password: str = Field(max_length=200, repr=False)

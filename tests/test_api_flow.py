@@ -126,4 +126,4 @@ def test_audit_page_lists_entries(client):
     client.post("/api/scans", json={"repo_url": "https://github.com/o/r",
                                     "questionnaire": QUESTIONNAIRE})
     page = client.get("/audit").text
-    assert "Scan started" in page and "AI suggested a fix" in page
+    assert "Scan started" in page and "Suggestion created" in page

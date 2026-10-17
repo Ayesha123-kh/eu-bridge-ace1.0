@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Sign in · {{ app_name }}{% endblock %}
+{% block content %}
+<div class="authwrap">
+  <section class="panel authcard">
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" id="tab-signin" aria-selected="{{ 'true' if mode == 'signin' else 'false' }}">Sign in</button>
+      <button type="button" role="tab" id="tab-signup" aria-selected="{{ 'true' if mode == 'signup' else 'false' }}">Create account</button>
+    </div>
+    <form id="auth-form" novalidate data-next="{{ next }}" data-mode="{{ mode }}">
+      <div class="field" id="name-field" {% if mode == 'signin' %}hidden{% endif %}>
+        <label for="name">Full name</label>
+        <input id="name" type="text" autocomplete="name" maxlength="80">
+        <p class="hint">Shown as the approver on every decision you make.</p>
+      </div>
+      <div class="field">
+        <label for="email">Work email</label>
+        <input id="email" type="text" inputmode="email" autocomplete="email" maxlength="200">
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password" maxlength="200">
+        <p class="hint" id="pw-hint" {% if mode == 'signin' %}hidden{% endif %}>At least 8 characters.</p>
+      </div>
+      <p class="error" id="auth-error" role="alert" hidden></p>
+      <button class="btn primary" type="submit" id="auth-submit">{{ 'Sign in' if mode == 'signin' else 'Create account' }}</button>
+    </form>
+    <p class="hint" style="margin-top:16px">Scans you ran as a guest on this device move into your account when you sign in. Signed-in decisions are recorded under your name and cannot be edited.</p>
+  </section>
+  <aside class="side">
+    <h2>Why sign in</h2>
+    <dl class="checks">
+      <dt>Your history stays yours</dt><dd>The dashboard and audit log show only your scans.</dd>
+      <dt>Approvals carry your name</dt><dd>Every approve, edit and reject is recorded under your account, so the audit log shows exactly who decided.</dd>
+      <dt>Pick up where you left off</dt><dd>Come back later to finish a review or download fixes.</dd>
+    </dl>
+    <p class="hint" style="margin-top:14px">You can also use EU-Bridge as a guest without an account.</p>
+  </aside>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/signin.js"></script>{% endblock %}

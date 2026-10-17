@@ -139,11 +139,13 @@ def test_triage_new_triggers():
     assert triage({"domain": "other", "ai_features": ["chat"], "uses_llm": True}, [])["risk_tier"] == "limited"
 
 
-def test_dashboard_shows_counts(client):
+def test_dashboard_data_and_page(client):
     client.post("/api/scans", json={"repo_url": "https://github.com/o/r", "questionnaire": Q})
-    page = client.get("/").text
-    assert "Decisions waiting" in page and "Findings by check" in page and "o/r" in page
-    assert "Audit log intact" in page
+    d = client.get("/api/dashboard").json()
+    assert d["stats"]["scans"] == 1 and d["stats"]["waiting"] == 1
+    assert d["scans"][0]["name"] == "o/r" and d["scans"][0]["attention"]
+    assert d["integrity"]["ok"] is True and d["checks"][2]["found"] == 1
+    assert "Dashboard" in client.get("/").text
 
 
 from app.services.redact import redact

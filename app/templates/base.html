@@ -22,10 +22,23 @@
         <a href="/explore" {% if active == "explore" %}aria-current="page"{% endif %}>Regulations</a>
         <a href="/audit" {% if active == "audit" %}aria-current="page"{% endif %}>Audit log</a>
       </nav>
+      <div class="account">
+        {% if user %}<span class="who" title="{{ user.email }}">{{ user.name }}</span><button class="linkbtn" type="button" id="signout">Sign out</button>
+        {% else %}<a class="btn small" href="/signin" {% if active == "signin" %}aria-current="page"{% endif %}>Sign in</a>{% endif %}
+      </div>
     </div>
   </header>
   <main class="wrap">{% block content %}{% endblock %}</main>
   <footer class="wrap foot">Decision support, not legal advice.</footer>
+  <script>
+    window.EUB_USER = {{ (user.name if user else None)|tojson }};
+    (function () {
+      var b = document.getElementById('signout');
+      if (b) b.addEventListener('click', function () {
+        fetch('/api/auth/logout', { method: 'POST' }).then(function () { window.location.href = '/'; });
+      });
+    })();
+  </script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

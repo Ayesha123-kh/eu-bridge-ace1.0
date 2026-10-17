@@ -22,7 +22,8 @@
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
-  function savedName() { try { return localStorage.getItem('eub_reviewer') || ''; } catch (e) { return ''; } }
+  function savedName() { if (window.EUB_USER) return window.EUB_USER; try { return localStorage.getItem('eub_reviewer') || ''; } catch (e) { return ''; } }
+  function nameAttr() { return window.EUB_USER ? ' readonly aria-readonly="true"' : ''; }
   function saveName(v) { try { localStorage.setItem('eub_reviewer', v); } catch (e) { /* ignore */ } }
   function fmt(iso) {
     if (!iso) return '';
@@ -118,7 +119,7 @@
         '<textarea class="patch" id="patch-' + f.id + '" rows="5" spellcheck="false">' + esc(patch) + '</textarea></div>';
     }
     h += '<div class="row"><div class="field" style="margin:0"><label for="name-' + f.id + '">Your name</label>' +
-      '<input type="text" id="name-' + f.id + '" value="' + esc(savedName()) + '" autocomplete="name" maxlength="80"></div>' +
+      '<input type="text" id="name-' + f.id + '" value="' + esc(savedName()) + '" autocomplete="name" maxlength="80"' + nameAttr() + '></div>' +
       '<div class="field" style="margin:0"><label for="reason-' + f.id + '">Reason, in one line</label>' +
       '<input type="text" id="reason-' + f.id + '" maxlength="300" placeholder="' +
       (mode === 'reject' ? 'Why should this change not be made?' : 'Why is this change correct?') + '"></div></div>';
@@ -206,7 +207,7 @@
       '<p>' + esc(s.escalation_reason) + '</p><p>The AI does not decide the risk tier for this product. The fixes below are still useful, but they do not make it compliant on their own.</p>';
     if (openForm && openForm.kind === 'risk') {
       h += '<form class="risk-form" data-form="risk" novalidate>' +
-        '<div class="field" style="margin:0"><label for="risk-name">Your name</label><input type="text" id="risk-name" value="' + esc(savedName()) + '" maxlength="80" autocomplete="name"></div>' +
+        '<div class="field" style="margin:0"><label for="risk-name">Your name</label><input type="text" id="risk-name" value="' + esc(savedName()) + '" maxlength="80" autocomplete="name"' + nameAttr() + '></div>' +
         '<div class="field" style="margin:0"><label for="risk-reason">Reason, in one line</label><input type="text" id="risk-reason" maxlength="300" placeholder="For example: sent to legal for Annex III assessment"></div>' +
         '<p class="error" data-error hidden role="alert"></p>' +
         '<div class="buttons" style="display:flex;gap:10px"><button class="btn primary" type="submit">Confirm risk tier reviewed</button><button class="btn" type="button" data-act="cancel">Cancel</button></div></form>';
