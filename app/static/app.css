@@ -173,3 +173,80 @@ tbody tr:last-child td { border-bottom: 0; }
   h1 { font-size: 24px; }
   nav { margin-left: 0; width: 100%; }
 }
+
+/* Scan wizard */
+.steps { list-style: none; margin: 0 0 24px; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; counter-reset: s; }
+.steps li { counter-increment: s; font-size: 14px; font-weight: 500; color: var(--muted); border-top: 3px solid var(--line); padding-top: 8px; }
+.steps li::before { content: "Step " counter(s) ". "; }
+.steps li.on { color: var(--ink); border-color: var(--accent); }
+.steps li.done { color: var(--ink); border-color: var(--accent); opacity: .7; }
+.options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.option { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--line-strong); border-radius: 8px; padding: 14px 16px; cursor: pointer; background: #fff; font-weight: 400; min-width: 0; }
+.option:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.option input { margin-top: 4px; accent-color: var(--accent); width: 16px; height: 16px; flex: none; }
+.option strong { display: block; font-size: 16px; }
+.option small { display: block; color: var(--muted); font-size: 14px; font-weight: 400; margin-top: 2px; line-height: 1.4; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 8px; font-weight: 400; font-size: 15px; border: 1px solid var(--line-strong); border-radius: 999px; padding: 8px 14px; min-height: 40px; cursor: pointer; background: #fff; }
+.chip:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.chip input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+.choices { flex-wrap: wrap; }
+.nav-buttons { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+input[type="password"], input[type="file"] { width: 100%; font: inherit; color: var(--ink); background: #fff; border: 1px solid var(--line-strong); border-radius: 6px; padding: 10px 12px; min-height: 44px; }
+input[type="file"] { padding: 8px 10px; }
+input[type="password"]:focus { outline: 3px solid #7aa7e0; outline-offset: 0; border-color: var(--accent); }
+
+/* Dashboard */
+.pagehead { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.emptystate { display: flex; flex-direction: column; gap: 12px; max-width: 640px; }
+.emptystate p { color: var(--muted); }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; display: flex; flex-direction: column; gap: 2px; }
+.stat .n { font-size: 32px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.stat .l { color: var(--muted); font-size: 14px; }
+.block { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.two .block { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+.attention { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.attention li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.attention li:last-child { border-bottom: 0; }
+.attention .why { display: block; color: var(--warn); font-size: 14px; }
+.legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; color: var(--muted); font-size: 13px; margin: -4px 0 0; }
+.legend .k { width: 12px; height: 12px; border-radius: 3px; display: inline-block; margin-right: -8px; }
+.k.ok, .stack .ok { background: var(--ok); } .k.rej, .stack .rej { background: var(--line-strong); } .k.wait, .stack .wait { background: var(--accent); }
+.checkrows { display: flex; flex-direction: column; gap: 18px; }
+.checkrow .top { display: flex; justify-content: space-between; gap: 12px; }
+.checkrow .count { color: var(--muted); font-size: 14px; }
+.stack { display: flex; height: 10px; border-radius: 5px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; margin: 6px 0 4px; }
+.stack i { display: block; height: 100%; }
+.checkrow .sub { color: var(--muted); font-size: 13.5px; }
+.activity { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.activity li { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.activity li:first-child { padding-top: 0; }
+.activity .what { font-weight: 500; }
+.activity .meta { color: var(--muted); font-size: 13.5px; }
+.activity .sum { color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+.integrity { font-size: 14px; margin-top: 4px; }
+.integrity.ok { color: var(--ok); } .integrity.bad { color: var(--bad); font-weight: 600; }
+.tag { font-size: 12px; font-weight: 600; color: var(--muted); border: 1px solid var(--line-strong); border-radius: 4px; padding: 0 6px; margin-left: 6px; }
+
+/* Review: four checks */
+.checks-summary { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.checks-summary h2 { font-size: 16px; padding: 16px 20px 4px; }
+.cs-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; padding: 12px 20px; border-top: 1px solid var(--line); align-items: baseline; }
+.cs-row:first-of-type { border-top: 0; }
+.cs-row .name { font-weight: 500; }
+.cs-row .law { color: var(--muted); font-size: 13.5px; }
+.cs-row .state { font-size: 14px; font-weight: 600; text-align: right; }
+.state.clear { color: var(--ok); } .state.open { color: var(--warn); } .state.done { color: var(--ok); } .state.muted { color: var(--muted); }
+.tokenbox { display: grid; gap: 6px; max-width: 520px; }
+.tokenbox label { font-size: 14px; }
+
+@media (max-width: 760px) {
+  .options { grid-template-columns: 1fr; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .two { grid-template-columns: 1fr; }
+  .steps li::before { content: ""; }
+  .cs-row { grid-template-columns: 1fr; }
+  .cs-row .state { text-align: left; }
+}

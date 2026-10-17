@@ -161,6 +161,34 @@
     return h + '</article>';
   }
 
+  function checksSummary() {
+    var s = data.scan, h = '<section class="checks-summary"><h2>The four checks</h2>';
+    Object.keys(RULES).forEach(function (rule) {
+      var fs = data.findings.filter(function (f) { return f.rule_id === rule; });
+      var state, cls;
+      if (!fs.length) { state = 'No issue found in the files reviewed'; cls = 'clear'; }
+      else {
+        var applied = fs.filter(function (f) { return f.status === 'applied'; }).length;
+        var appr = fs.filter(function (f) { return f.status === 'approved' || f.status === 'applied'; }).length;
+        var rej = fs.filter(function (f) { return f.status === 'rejected'; }).length;
+        var wait = fs.filter(function (f) { return f.status === 'pending' || f.status === 'needs_human'; }).length;
+        if (wait) { state = wait + ' waiting for your decision'; cls = 'open'; }
+        else if (applied) { state = 'Fix sent in pull request'; cls = 'done'; }
+        else if (appr) { state = 'Fix approved, ready to send'; cls = 'done'; }
+        else if (rej) { state = 'Fix rejected'; cls = 'muted'; }
+        else { state = 'Issue found'; cls = 'open'; }
+      }
+      h += '<div class="cs-row"><div><div class="name">' + esc(RULES[rule].name) + '</div><div class="law">' + esc(rule) + ' \u00b7 ' + esc(RULES[rule].law) + '</div></div><div class="state ' + cls + '">' + esc(state) + '</div></div>';
+    });
+    var rs, rc;
+    if (s.status === 'escalated' || s.escalation_reason) {
+      if (s.risk_reviewed_by) { rs = 'Escalated, confirmed by ' + s.risk_reviewed_by; rc = 'done'; }
+      else { rs = 'Escalated, needs a person to confirm'; rc = 'open'; }
+    } else { rs = 'No escalation needed'; rc = 'clear'; }
+    h += '<div class="cs-row"><div><div class="name">Risk tier</div><div class="law">AIA-RISK \u00b7 EU AI Act, Annex III</div></div><div class="state ' + rc + '">' + esc(rs) + '</div></div>';
+    return h + '</section>';
+  }
+
   function riskPanel() {
     var s = data.scan;
     if (s.status !== 'escalated' && !s.escalation_reason) return '';
@@ -182,8 +210,10 @@
     return h + '</div>';
   }
 
+  var needToken = false;
+
   function prPanel(c) {
-    var s = data.scan;
+    var s = data.scan, zip = s.source === 'private_zip';
     if (s.status === 'pr_opened') {
       return '<section class="card pr"><h2>Pull request opened</h2><p class="status">The approved fixes are on a new branch of ' +
         esc(s.repo_owner + '/' + s.repo_name) + '. Review the diff on GitHub before merging.</p>' +
@@ -191,17 +221,24 @@
         '<p><a href="/audit">See the audit log</a></p></section>';
     }
     var msg, ok = false;
-    if (c.pending > 0) msg = c.pending + (c.pending === 1 ? ' finding still needs' : ' findings still need') + ' a decision before a pull request can be created.';
-    else if (c.approved === 0) msg = 'Approve at least one fix to create a pull request.';
+    if (c.pending > 0) msg = c.pending + (c.pending === 1 ? ' finding still needs' : ' findings still need') + ' a decision before ' + (zip ? 'the fixes can be downloaded.' : 'a pull request can be created.');
+    else if (c.approved === 0) msg = 'Approve at least one fix to ' + (zip ? 'download the fixed files.' : 'create a pull request.');
     else {
       ok = true;
-      msg = c.approved + (c.approved === 1 ? ' approved fix' : ' approved fixes') + ' will be committed to a new branch of ' +
+      if (zip) msg = c.approved + (c.approved === 1 ? ' approved fix' : ' approved fixes') + ' will be applied to your uploaded files. You get a ZIP with the fixed files, a patch, and a list of who approved what.';
+      else msg = c.approved + (c.approved === 1 ? ' approved fix' : ' approved fixes') + ' will be committed to a new branch of ' +
         s.repo_owner + '/' + s.repo_name + ' and opened as a pull request. The pull request lists who approved each one.';
       if (c.needs_human > 0) msg += ' ' + c.needs_human + ' flagged ' + (c.needs_human === 1 ? 'finding has' : 'findings have') + ' no decision and will be left out.';
     }
-    return '<section class="card pr"><h2>Create the pull request</h2><p class="status">' + esc(msg) + '</p>' +
-      '<p class="error" id="pr-error" hidden role="alert"></p>' +
-      '<div><button class="btn primary" type="button" data-act="pr"' + (ok ? '' : ' disabled') + '>Create pull request</button></div></section>';
+    var h = '<section class="card pr"><h2>' + (zip ? 'Download the fixes' : 'Create the pull request') + '</h2><p class="status">' + esc(msg) + '</p>';
+    if (!zip && (s.source === 'private_token' || needToken)) {
+      h += '<div class="tokenbox"><label for="pr-token">' + (s.source === 'private_token' ? 'Access token with write access to this repository' : 'The shared token cannot write to this repository. Paste a token that can') +
+        '</label><input type="password" id="pr-token" autocomplete="off" spellcheck="false" placeholder="github_pat_\u2026"><p class="hint">Used once to open the pull request. It is never stored or logged.</p></div>';
+    }
+    h += '<p class="error" id="pr-error" hidden role="alert"></p>';
+    if (zip) h += '<div>' + (ok ? '<a class="btn primary" href="/api/scans/' + esc(s.id) + '/patch" id="dl-link">Download fixed files (ZIP)</a>' : '<button class="btn primary" type="button" disabled>Download fixed files (ZIP)</button>') + '</div>';
+    else h += '<div><button class="btn primary" type="button" data-act="pr"' + (ok ? '' : ' disabled') + '>Create pull request</button></div>';
+    return h + '</section>';
   }
 
   function render() {
@@ -213,9 +250,9 @@
     }
     var edited = c.edited, plain = c.approved - edited, waiting = c.pending + c.needs_human;
     var h = '<div class="scanhead"><h1>' + esc(s.repo_owner + '/' + s.repo_name) + '</h1>' +
-      '<p class="meta">Scanned ' + esc(fmt(s.created_at)) + (s.commit_sha ? ' · commit ' + esc(s.commit_sha.slice(0, 7)) : '') +
+      '<p class="meta">' + (s.source === 'private_zip' ? 'Uploaded ZIP ' + esc(s.source_name || '') + ' \u00b7 ' : s.source === 'private_token' ? 'Private repository \u00b7 ' : '') + 'Scanned ' + esc(fmt(s.created_at)) + (s.commit_sha ? ' · commit ' + esc(s.commit_sha.slice(0, 7)) : '') +
       ' · Risk tier: <strong>' + esc(RISK[s.risk_tier] || s.risk_tier || 'unknown') + '</strong></p></div>';
-    h += riskPanel();
+    h += riskPanel() + checksSummary();
     var notes = s.notes || {};
     if (notes.files_scanned != null) {
       h += '<p class="meta" style="color:var(--muted);font-size:14px">' + notes.files_scanned + ' ' + (notes.files_scanned === 1 ? 'file' : 'files') +
@@ -278,15 +315,20 @@
       document.getElementById('risk-reason').focus();
     } else if (act === 'pr') {
       if (busy) return;
+      var tokenEl = document.getElementById('pr-token');
+      var token = tokenEl ? tokenEl.value.trim() : '';
+      var errBox = document.getElementById('pr-error');
+      if (tokenEl && !token) {
+        errBox.textContent = 'Enter an access token with write access to continue.';
+        errBox.hidden = false;
+        tokenEl.focus();
+        return;
+      }
       busy = true;
       t.disabled = true;
-      t.textContent = 'Creating pull request…';
-      post('/api/scans/' + scanId + '/pr').then(function () { return load(false); }).catch(function (err) {
-        var box = document.getElementById('pr-error');
-        box.textContent = err.message;
-        box.hidden = false;
-        t.disabled = false;
-        t.textContent = 'Create pull request';
+      t.textContent = 'Creating pull request\u2026';
+      post('/api/scans/' + scanId + '/pr', token ? { access_token: token } : undefined).then(function () { return load(false); }).catch(function (err) {
+        if (/GitHub returned (401|403|404)/.test(err.message)) needToken = true;
         load(true).then(function () {
           var b2 = document.getElementById('pr-error');
           if (b2) { b2.textContent = err.message; b2.hidden = false; }

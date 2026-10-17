@@ -16,12 +16,12 @@ Most compliance tools produce a report. EU-Bridge produces a **human-reviewed pu
 
 ![EU-Bridge workflow](docs/workflow.svg)
 
-1. A reviewer submits a public GitHub repo URL and a short questionnaire (what the product does, whether it uses an LLM, whether it handles personal data, and the domain).
+1. A reviewer chooses **public repository** or **private code**, then answers a three-step questionnaire (the code, the product, and the data and AI it uses). Private code can be read with a fine-grained access token, or uploaded as a ZIP.
 2. The app reads the repo, keeps the files that contain AI-related code, and asks OpenAI for structured findings. The AI only drafts. It never changes code.
 3. The app checks that each suggested snippet exists exactly once in the file. Findings it can't place, or that the AI is unsure about, are marked `needs_human`.
 4. Risk triage is deterministic. Hiring, credit, education, health, biometrics and critical-infrastructure products are **escalated**, and the AI doesn't decide the tier. A person confirms it.
 5. A reviewer approves, edits then approves, or rejects each finding, one at a time, with a name and a reason.
-6. When nothing is pending and at least one fix is approved, the app commits the approved fixes to a new branch and opens a pull request that lists each fix and who approved it.
+6. When nothing is pending and at least one fix is approved, the app commits the approved fixes to a new branch and opens a pull request that lists each fix and who approved it. For uploaded ZIPs, the reviewer downloads a ZIP with the fixed files, a patch and the approval list instead.
 7. Every step is written to a hash-chained audit log that can be verified and exported.
 
 ### Where a human is in the loop
@@ -52,11 +52,13 @@ Each entry stores `sha256(prev_hash + canonical_json(entry))`, starting from 64 
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/healthz` | Health check |
-| POST | `/api/scans` | Start a scan: `{repo_url, questionnaire}` |
+| POST | `/api/scans` | Scan a GitHub repo: `{source: public \| private_token, repo_url, access_token?, questionnaire}` |
+| POST | `/api/scans/upload` | Scan an uploaded ZIP (multipart: `questionnaire` JSON, `file`) |
 | GET | `/api/scans/{id}` | Scan, findings and counters |
 | POST | `/api/findings/{id}/review` | `{action: approve \| edit_and_approve \| reject, reviewer, reason, final_patch?}` |
 | POST | `/api/scans/{id}/risk-review` | Confirm the risk tier: `{reviewer, reason}` |
-| POST | `/api/scans/{id}/pr` | Apply approved fixes and open the PR |
+| POST | `/api/scans/{id}/pr` | Apply approved fixes and open the PR (`{access_token}` for private repos) |
+| GET | `/api/scans/{id}/patch` | ZIP scans only: download fixed files, patch and approvals |
 | GET | `/api/audit/verify` | Verify the hash chain |
 | GET | `/api/audit/export` | Download the log as JSON |
 
@@ -68,10 +70,19 @@ curl -X POST http://localhost:8000/api/scans \
   -d '{"repo_url":"https://github.com/Ayesha123-kh/eu-bridge-demo-chatbot","questionnaire":{"description":"CV screening bot","uses_llm":true,"processes_personal_data":true,"domain":"hiring"}}'
 ```
 
-## Status
+## Pages
 
-Built: scanner, triage, review rules, patcher, PR creation, audit log, JSON API, tests.
-Not built yet: the HTML pages (scan form, review page, audit page). Reviewers currently use the JSON API.
+| Page | Purpose |
+|---|---|
+| `/` | Dashboard: totals, scans that need attention, findings by check, recent activity, audit integrity |
+| `/new` | Three-step scan form for public repos, private repos (token) or an uploaded ZIP |
+| `/scans/{id}` | Review page: the four checks, diffs, approve / edit / reject, pull request or download |
+| `/audit` | Audit log with Verify and Export |
+
+## Private code
+
+- **Access token:** a fine-grained token limited to one repository with Contents and Pull requests set to read and write. It is held in memory for the request, never written to the database or logs, and must be entered again to open the pull request.
+- **ZIP upload:** source files only, up to 8 MB. Unsafe paths and symlinks are rejected. The scanned files are kept in the database only to prepare the download.
 
 ## Run locally
 
@@ -88,7 +99,7 @@ pytest
 | Variable | Required | Notes |
 |---|---|---|
 | `OPENAI_API_KEY` | yes | Never logged or displayed. |
-| `GITHUB_TOKEN` | yes | Fine-grained token for the **target repo** (the repo being scanned), with Contents and Pull requests set to read and write. |
+| `GITHUB_TOKEN` | yes | Fine-grained token for the **public repo** used by default, with Contents and Pull requests set to read and write. Private repos use a token entered by the reviewer instead. |
 | `OPENAI_MODEL` | no | Default `gpt-4o-mini`. |
 | `PORT` | no | Default `8000`. |
 | `APP_ENV` | no | `staging` or `production`. |
@@ -112,4 +123,4 @@ The Docker image runs `uvicorn app.main:app` on `$PORT`.
 
 ## Out of scope
 
-User accounts, private repos, GitLab, background queues, and full coverage of the AI Act or GDPR. Four checks, done well.
+User accounts, GitLab, background queues, scanning live websites, and full coverage of the AI Act or GDPR. Four checks, done well.
