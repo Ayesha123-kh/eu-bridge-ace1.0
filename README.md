@@ -18,7 +18,7 @@ Most compliance tools produce a report. EU-Bridge produces a **human-reviewed pu
 
 1. A reviewer chooses **public repository** or **private code**, then answers a three-step questionnaire (the code, the product, and the data and AI it uses). Private code can be read with a fine-grained access token, or uploaded as a ZIP.
 2. The app reads the repo, keeps the files that contain AI-related code, and asks OpenAI for structured findings. The AI only drafts. It never changes code.
-3. The app checks that each suggested snippet exists exactly once in the file. Findings it can't place, or that the AI is unsure about, are marked `needs_human`.
+3. The app discards suggestions that lack evidence: the quoted code must exist in the file, UI notices only apply to files that serve end users (not libraries or SDKs), log findings must involve user data, and a fix must change real behaviour (no comment-only patches, no calls to helpers that do not exist). It then checks that each remaining snippet exists exactly once in the file. Findings it can't place, or that the AI is unsure about, are marked `needs_human`.
 4. Risk triage is deterministic. Hiring, credit, education, health, biometrics and critical-infrastructure products are **escalated**, and the AI doesn't decide the tier. A person confirms it.
 5. A reviewer approves, edits then approves, or rejects each finding, one at a time, with a name and a reason.
 6. When nothing is pending and at least one fix is approved, the app commits the approved fixes to a new branch and opens a pull request that lists each fix and who approved it. For uploaded ZIPs, the reviewer downloads a ZIP with the fixed files, a patch and the approval list instead.

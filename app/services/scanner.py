@@ -12,7 +12,8 @@ from app.services import github
 from app.services.redact import redact
 
 ALLOWED_EXT = {".py", ".js", ".jsx", ".ts", ".tsx", ".html", ".vue", ".svelte"}
-SKIP_DIRS = {"node_modules", "dist", "build", ".next", "venv", ".venv", "__pycache__", ".git"}
+SKIP_DIRS = {"node_modules", "dist", "build", ".next", "venv", ".venv", "__pycache__", ".git",
+             "tests", "test", "__tests__", "spec", "specs", "docs", "doc", "fixtures"}
 CANDIDATE_CAP = 100
 BATCH_SIZE = 6
 CONFIDENCE_THRESHOLD = 0.6
@@ -40,14 +41,20 @@ class RawFinding(BaseModel):
     severity: Literal["low", "medium", "high"]
     confidence: float
     file_path: str
+    evidence: str
     original_snippet: str
     suggested_patch: str
 
 
+class RiskSignal(BaseModel):
+    signal: Literal["hiring", "credit", "education", "health", "biometrics",
+                    "critical_infrastructure"]
+    evidence: str
+
+
 class ScanOutput(BaseModel):
     findings: list[RawFinding]
-    risk_signals: list[Literal["hiring", "credit", "education", "health", "biometrics",
-                               "critical_infrastructure"]]
+    risk_signals: list[RiskSignal]
 
 
 def is_candidate(path: str) -> bool:
@@ -56,6 +63,8 @@ def is_candidate(path: str) -> bool:
         return False
     name = parts[-1]
     if ".min." in name or name.endswith(("-lock.json", ".lock")):
+        return False
+    if re.match(r"(test_.*|.*_test\.py|.*\.(test|spec)\.[jt]sx?|conftest\.py)$", name):
         return False
     return os.path.splitext(name)[1].lower() in ALLOWED_EXT
 
@@ -124,14 +133,95 @@ def align_snippet(content: str, original: str, patch: str) -> tuple[str, str] | 
     return None
 
 
-def process_findings(raw: list[RawFinding], files: dict[str, str]) -> list[dict]:
-    """Validate snippets against fetched files and assign statuses."""
+def _norm(text: str) -> str:
+    return re.sub(r"\s+", " ", text or "").strip().lower()
+
+
+PROVIDER_CALL = re.compile(
+    r"chat\.completions\.create|completions\.create|responses\.create|messages\.create|"
+    r"generate_content|generateContent|ChatCompletion|ChatOpenAI|ChatAnthropic|"
+    r"api\.openai\.com|api\.anthropic\.com|api\.groq\.com|generativelanguage\.googleapis\.com")
+ROUTE = re.compile(r"@\w+\.(get|post|put|route|websocket)\(|\b(app|router)\.(get|post|put|use)\(|"
+                   r"render_template|render\(|res\.(send|json)|jsonify|HTMLResponse|TemplateResponse|"
+                   r"createServer|NextResponse|export (default )?async function (GET|POST)")
+UI_EXT = {".html", ".jsx", ".tsx", ".vue", ".svelte"}
+CHATTY = re.compile(r"chat|assistant|\bbot\b|prompt|message|ask |question|reply", re.I)
+LOG_CALL = re.compile(r"\b(print|console\.(log|info|warn|error|debug)|logger\.\w+|logging\.\w+|log\.\w+)\s*\(", re.I)
+PII_WORD = re.compile(r"e-?mail|phone|\bmsg\b|message|\buser(name)?\b|first_?name|last_?name|full_?name|"
+                      r"\bname\b|address|prompt|content|\btext\b|\bbody\b|\bquery\b|\binput\b|\bssn\b|"
+                      r"\bcv\b|resume", re.I)
+
+
+def has_user_surface(path: str, content: str) -> bool:
+    """True if the file can show something to end users: a UI file or an HTTP handler."""
+    if os.path.splitext(path)[1].lower() in UI_EXT:
+        return bool(CHATTY.search(content))
+    return bool(ROUTE.search(content))
+
+
+def comment_only_change(path: str, original: str, patch: str) -> bool:
+    """True if the patch differs from the original only by comments or whitespace."""
+    ext = os.path.splitext(path)[1].lower()
+
+    def strip(t: str) -> str:
+        if ext == ".py":
+            t = re.sub(r"#.*", "", t)
+        elif ext in {".html", ".vue", ".svelte"}:
+            t = re.sub(r"<!--.*?-->", "", t, flags=re.S)
+            t = re.sub(r"(?<!:)//.*", "", t)
+        else:
+            t = re.sub(r"/\*.*?\*/", "", t, flags=re.S)
+            t = re.sub(r"(?<!:)//.*", "", t)
+        return re.sub(r"\s+", "", t)
+
+    return strip(original) == strip(patch)
+
+
+def undefined_helper(patch: str, content: str) -> bool:
+    """True if the patch calls a redact helper that the file neither defines nor imports."""
+    if not re.search(r"\bredact\w*\(", patch):
+        return False
+    return not re.search(r"\bdef redact|\bfunction redact|\bredact\w*\s*=|import[^\n]*\bredact|"
+                         r"from[^\n]*import[^\n]*\bredact", content)
+
+
+def evidence_found(evidence: str, files: dict[str, str], min_len: int = 8) -> bool:
+    ev = _norm(evidence)
+    return len(ev) >= min_len and any(ev in _norm(c) for c in files.values())
+
+
+def process_findings(raw: list[RawFinding], files: dict[str, str],
+                     dropped: list[str] | None = None) -> list[dict]:
+    """Discard unsupported suggestions, validate snippets, and assign statuses."""
+    drop = dropped if dropped is not None else []
+    provider_calls = any(PROVIDER_CALL.search(c) for c in files.values())
     out = []
     for f in raw:
         content = files.get(f.file_path)
         if content is None:
-            continue  # model invented a file
+            drop.append("named a file that was not scanned")
+            continue
+        if _norm(f.evidence) not in _norm(content) or len(_norm(f.evidence)) < 8:
+            drop.append("no matching evidence in the code")
+            continue
+        if f.rule_id in ("AIA-50-1", "GDPR-13") and not has_user_surface(f.file_path, content):
+            drop.append("file is not a user-facing interface (library or internal code)")
+            continue
+        if f.rule_id == "GDPR-13" and not provider_calls:
+            drop.append("no call to an outside AI provider found")
+            continue
+        if f.rule_id == "GDPR-5-1C" and not (LOG_CALL.search(f.original_snippet)
+                                              and PII_WORD.search(f.original_snippet)):
+            drop.append("the log line does not contain user data")
+            continue
+        if comment_only_change(f.file_path, f.original_snippet, f.suggested_patch):
+            drop.append("the fix only adds a comment")
+            continue
+        if undefined_helper(f.suggested_patch, content):
+            drop.append("the fix calls a helper that does not exist")
+            continue
         d = f.model_dump()
+        d.pop("evidence", None)
         d["confidence"] = max(0.0, min(1.0, d["confidence"]))
         reasons = []
         aligned = align_snippet(content, f.original_snippet, f.suggested_patch)
@@ -139,6 +229,7 @@ def process_findings(raw: list[RawFinding], files: dict[str, str]) -> list[dict]
             d["original_snippet"], d["suggested_patch"] = aligned
         else:
             reasons.append("AI's snippet could not be located exactly — edit the patch manually.")
+            d["confidence"] = min(d["confidence"], 0.5)
         if d["confidence"] < CONFIDENCE_THRESHOLD:
             reasons.append(f"AI confidence is low ({d['confidence']:.2f}).")
         d["status"] = "needs_human" if reasons else "pending"
@@ -203,7 +294,7 @@ async def analyse(files: dict[str, str], stats: dict, questionnaire: dict | None
     context = build_context(questionnaire)
     client = AsyncOpenAI(api_key=config.OPENAI_API_KEY, timeout=60, max_retries=2)
     raw: list[RawFinding] = []
-    signals: set[str] = set()
+    signals_raw: list[RiskSignal] = []
     warnings: list[str] = []
     masked_total = 0
     items = []
@@ -228,14 +319,23 @@ async def analyse(files: dict[str, str], stats: dict, questionnaire: dict | None
             warnings.append("AI returned no parsable result for a batch.")
             continue
         raw.extend(parsed.findings)
-        signals.update(parsed.risk_signals)
+        signals_raw.extend(parsed.risk_signals)
     if batches and failures == len(batches):
         raise ScanError("The AI service could not be reached or rejected the request. "
                         f"Check OPENAI_API_KEY / OPENAI_MODEL and try again. ({last_error})")
     if stats.get("skipped_too_large") or stats.get("skipped_over_cap"):
         warnings.append(f"Some files were skipped (too large: {stats.get('skipped_too_large', 0)}, "
                         f"over file cap: {stats.get('skipped_over_cap', 0)}).")
-    return {"findings": process_findings(raw, files), "risk_signals": sorted(signals),
+    dropped: list[str] = []
+    findings = process_findings(raw, files, dropped)
+    signals = sorted({x.signal for x in signals_raw if evidence_found(x.evidence, files, 12)})
+    if dropped:
+        reasons: dict[str, int] = {}
+        for d in dropped:
+            reasons[d] = reasons.get(d, 0) + 1
+        stats["discarded"] = [{"reason": r, "count": n} for r, n in reasons.items()]
+        stats["discarded_total"] = len(dropped)
+    return {"findings": findings, "risk_signals": signals,
             "stats": stats, "warnings": warnings, "files": files}
 
 

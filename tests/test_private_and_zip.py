@@ -8,7 +8,7 @@ from app.routes import api
 from app.services import archive, github, scanner
 from app.services.triage import triage
 
-FILE = "import openai\nprint(f'User {email} said {msg}')\n"
+FILE = "import openai\n@app.post('/chat')\ndef chat():\n    print(f'User {email} said {msg}')\n    return client.chat.completions.create()\n"
 Q = {"description": "CV screening bot", "uses_llm": True, "processes_personal_data": True,
      "domain": "other"}
 
@@ -48,7 +48,7 @@ def client(db, monkeypatch):
         files = files or {"server.py": FILE}
         fs = scanner.process_findings([scanner.RawFinding(
             rule_id="GDPR-5-1C", title="PII in log", explanation="e", severity="high",
-            confidence=0.9, file_path="server.py",
+            confidence=0.9, file_path="server.py", evidence="@app.post",
             original_snippet="print(f'User {email} said {msg}')",
             suggested_patch="print('chat message received')")], files)
         return {"findings": fs, "risk_signals": [], "stats": {}, "warnings": [],

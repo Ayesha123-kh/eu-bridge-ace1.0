@@ -277,13 +277,18 @@
       h += '<p class="meta-note">' + notes.files_scanned + ' ' + (notes.files_scanned === 1 ? 'file' : 'files') +
         ' with AI-related code reviewed.' + (notes.secrets_masked ? ' ' + notes.secrets_masked + ' ' + (notes.secrets_masked === 1 ? 'secret was' : 'secrets were') + ' masked before the code was sent to the AI.' : '') +
         (notes.warnings || []).map(function (w) { return ' ' + esc(w); }).join('') + '</p>';
+      if (notes.discarded_total) {
+        h += '<p class="meta-note">' + notes.discarded_total + ' AI ' + (notes.discarded_total === 1 ? 'suggestion was' : 'suggestions were') +
+          ' discarded before reaching you because they failed evidence checks: ' +
+          notes.discarded.map(function (d) { return esc(d.reason) + ' (' + d.count + ')'; }).join('; ') + '.</p>';
+      }
     }
     h += '<p class="tally">' + (s.source === 'assessment' ? 'Recommended' : 'AI suggested') + ' <b>' + c.suggested + '</b><span class="sep">·</span>Approved <b>' + plain +
       '</b><span class="sep">·</span>Edited <b>' + edited + '</b><span class="sep">·</span>Rejected <b>' + c.rejected +
       '</b><span class="sep">·</span>Waiting for you <b>' + waiting + '</b></p>';
 
     if (!data.findings.length) {
-      h += '<div class="callout"><h2>No issues found</h2><p>The AI found nothing to fix in the files it reviewed. This does not prove the product is compliant.</p></div>';
+      h += '<div class="callout"><h2>No issues found</h2><p>No suggestion passed the evidence checks in the files reviewed. This does not prove the product is compliant. If this is a library or SDK, notices for end users belong in the application that uses it.</p></div>';
     } else {
       var todo = data.findings.filter(function (f) { return !isDecided(f); });
       var done = data.findings.filter(isDecided);

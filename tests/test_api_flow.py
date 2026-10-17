@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from app.routes import api
 from app.services import github, scanner
 
-FILE = "import openai\nprint(f'User {email} said {msg}')\n"
+FILE = "import openai\n@app.post('/chat')\ndef chat():\n    print(f'User {email} said {msg}')\n    return client.chat.completions.create()\n"
 QUESTIONNAIRE = {"description": "CV screening bot", "uses_llm": True,
                  "processes_personal_data": True, "domain": "hiring"}
 
@@ -27,11 +27,11 @@ def client(db, monkeypatch):
     async def scan_repo(o, r, ref, **kw):
         fs = scanner.process_findings([
             scanner.RawFinding(rule_id="GDPR-5-1C", title="PII in log", explanation="e",
-                               severity="high", confidence=0.9, file_path="server.py",
+                               severity="high", confidence=0.9, file_path="server.py", evidence="@app.post",
                                original_snippet="print(f'User {email} said {msg}')",
                                suggested_patch="print('chat message received')"),
             scanner.RawFinding(rule_id="AIA-50-1", title="No disclosure", explanation="e",
-                               severity="medium", confidence=0.9, file_path="server.py",
+                               severity="medium", confidence=0.9, file_path="server.py", evidence="@app.post",
                                original_snippet="NOT IN FILE", suggested_patch="x"),
         ], {"server.py": FILE})
         return {"findings": fs, "risk_signals": [], "stats": {}, "warnings": [],
