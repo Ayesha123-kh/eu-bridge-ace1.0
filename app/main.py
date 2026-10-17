@@ -29,8 +29,12 @@ GUEST_RE = re.compile(r"[A-Za-z0-9_-]{16,64}")
 async def identity(request, call_next):
     """Attach who is calling: a signed-in user, or an anonymous guest tied to a cookie."""
     path = request.url.path
-    if path == "/healthz" or path.startswith("/static/"):
+    if path == "/healthz":
         return await call_next(request)
+    if path.startswith("/static/"):
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "no-cache"  # always revalidate, so deploys take effect
+        return response
     user = auth.user_for_token(request.cookies.get(api.SESSION_COOKIE))
     guest = request.cookies.get(api.GUEST_COOKIE, "")
     fresh = None

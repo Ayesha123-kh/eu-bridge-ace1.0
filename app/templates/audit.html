@@ -52,4 +52,4 @@
 <p class="empty">No entries yet. Entries appear after your first scan. <a href="/new">Run a scan</a>.</p>
 {% endif %}
 {% endblock %}
-{% block scripts %}<script src="/static/audit.js"></script>{% endblock %}
+{% block scripts %}<script src="/static/audit.js?v={{ asset_v }}"></script>{% endblock %}

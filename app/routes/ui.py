@@ -12,7 +12,9 @@ from app.services.dashboard import ACTION_LABELS, STATUS_LABELS, display_name, f
 
 router = APIRouter()
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "..", "templates"))
-templates.env.globals.update(app_name=config.APP_NAME, app_env=config.APP_ENV)
+_STATIC = os.path.join(os.path.dirname(__file__), "..", "static")
+_ASSET_V = str(int(max(os.path.getmtime(os.path.join(_STATIC, f)) for f in os.listdir(_STATIC))))
+templates.env.globals.update(app_name=config.APP_NAME, app_env=config.APP_ENV, asset_v=_ASSET_V)
 
 
 def render(request: Request, name: str, ctx: dict | None = None):

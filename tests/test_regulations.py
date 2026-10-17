@@ -70,3 +70,12 @@ def test_match_endpoint_and_page(db):
     page = c.get("/explore").text
     assert "Which EU rules apply" in page and "The EU AI Act at a glance" in page
     assert "not legal advice" in page
+
+
+def test_static_assets_are_versioned_and_revalidated(db):
+    from fastapi.testclient import TestClient
+    from app.main import app
+    c = TestClient(app)
+    page = c.get("/new").text
+    assert "/static/new.js?v=" in page and "/static/app.css?v=" in page
+    assert c.get("/static/new.js").headers["cache-control"] == "no-cache"
