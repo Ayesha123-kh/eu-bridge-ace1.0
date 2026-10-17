@@ -4,13 +4,13 @@ import zipfile
 import pytest
 from fastapi.testclient import TestClient
 
+from conftest import VALID
 from app.routes import api
 from app.services import archive, github, scanner
 from app.services.triage import triage
 
 FILE = "import openai\n@app.post('/chat')\ndef chat():\n    print(f'User {email} said {msg}')\n    return client.chat.completions.create()\n"
-Q = {"description": "CV screening bot", "uses_llm": True, "processes_personal_data": True,
-     "domain": "other"}
+Q = {**VALID}
 
 
 def make_zip(files: dict[str, str]) -> bytes:
@@ -175,8 +175,8 @@ def test_secrets_are_masked_before_going_to_the_model(monkeypatch):
 
 
 def test_assessment_flow_needs_no_code(client):
-    q = {**Q, "domain": "hiring", "ai_features": ["chat", "decisions_about_people"],
-         "ai_provider": "openai", "data_types": ["contact"], "product_name": "HireBot"}
+    q = {**Q, "domain": "hiring", "human_review": "sometimes", "ai_features": ["chat", "decisions_about_people"],
+         "ai_providers": ["openai"], "data_types": ["contact"], "product_name": "HireBot"}
     r = client.post("/api/assessments", json=q)
     assert r.status_code == 200 and r.json()["status"] == "escalated"
     sid = r.json()["scan_id"]
@@ -219,12 +219,57 @@ def test_multiple_ai_providers_named_in_wording(client):
 
 
 def test_old_single_provider_field_still_works(client):
-    sid = client.post("/api/assessments", json={**Q, "ai_provider": "google"}).json()["scan_id"]
+    sid = client.post("/api/assessments", json={**Q, "ai_provider": "google", "ai_providers": []}).json()["scan_id"]
     gdpr = next(f for f in client.get(f"/api/scans/{sid}").json()["findings"] if f["rule_id"] == "GDPR-13")
     assert "Google" in gdpr["suggested_patch"]
 
 
 def test_self_hosted_only_needs_no_provider_notice(client):
-    q = {**Q, "uses_llm": False, "ai_features": ["recommendations"], "ai_providers": ["self_hosted"]}
+    q = {**Q, "uses_llm": False, "human_review": "always", "ai_features": ["recommendations"], "ai_providers": ["self_hosted"]}
     sid = client.post("/api/assessments", json=q).json()["scan_id"]
     assert "GDPR-13" not in [f["rule_id"] for f in client.get(f"/api/scans/{sid}").json()["findings"]]
+
+
+# ---- form validation (server-side, so the API cannot skip what the form requires)
+@pytest.mark.parametrize("change,fragment", [
+    ({"description": "ZSSJWWIIWI"}, "full sentence"),
+    ({"description": "asdf qwer zxcv tyui poiu"}, "full sentence"),
+    ({"company_name": ""}, "company name"),
+    ({"website": ""}, "website"),
+    ({"website": "not a site"}, "website"),
+    ({"website": "http://localhost"}, "website"),
+    ({"user_groups": []}, "who uses"),
+    ({"domain": "other", "industry": ""}, "industry"),
+    ({"ai_features": []}, "what the AI does"),
+    ({"ai_providers": []}, "providers"),
+    ({"data_types": []}, "personal data"),
+    ({"domain": "hiring", "human_review": "not_applicable"}, "reviews"),
+])
+def test_incomplete_or_nonsense_answers_are_rejected(client, change, fragment):
+    r = client.post("/api/assessments", json={**Q, **change})
+    assert r.status_code == 422, r.text
+    assert fragment.lower() in r.text.lower()
+
+
+def test_website_is_normalised_and_none_means_no_personal_data(client):
+    r = client.post("/api/assessments", json={**Q, "website": "acme.example.com", "data_types": ["none"]})
+    assert r.status_code == 200
+    d = client.get(f"/api/scans/{r.json()['scan_id']}").json()
+    assert d["scan"]["questionnaire"]["website"] == "https://acme.example.com"
+    assert d["scan"]["questionnaire"]["processes_personal_data"] is False
+    assert "GDPR-5-1C" not in [f["rule_id"] for f in d["findings"]]
+
+
+def test_upload_reports_a_readable_validation_error(client):
+    z = make_zip({"p/server.py": FILE})
+    r = client.post("/api/scans/upload", data={"questionnaire": __import__("json").dumps({**Q, "description": "xyz"})},
+                    files={"file": ("a.zip", z, "application/zip")})
+    assert r.status_code == 422 and "sentence" in r.json()["detail"]
+
+
+def test_login_can_be_required_for_scans(client, monkeypatch):
+    from app import config
+    monkeypatch.setattr(config, "REQUIRE_LOGIN", True)
+    assert client.post("/api/assessments", json=Q).status_code == 401
+    assert client.post("/api/auth/signup", json={"name": "Ayesha K", "email": "a@x.com", "password": "longenough"}).status_code == 200
+    assert client.post("/api/assessments", json=Q).status_code == 200

@@ -55,7 +55,7 @@ def build_items(q: dict, escalated: bool) -> list[dict]:
             explanation="If users type personal data and it is sent to an outside AI provider, tell them (Art. 13) and sign "
                         + ("each provider's data processing agreement" if plural else "the provider's data processing agreement") + " (Art. 28).",
             patch=f"Your messages are sent to {names} to generate replies. See our privacy notice for details."))
-    if q.get("processes_personal_data") or q.get("data_types"):
+    if q.get("processes_personal_data"):
         items.append(dict(
             rule_id="GDPR-5-1C", title="Keep personal data out of logs", severity="high",
             explanation="Logs should not contain raw messages, emails, phone numbers or names. Log that an event happened, not what the person wrote.",

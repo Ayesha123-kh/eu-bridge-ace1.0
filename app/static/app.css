@@ -340,3 +340,6 @@ button.checkrow:hover { background: var(--bg); }
 button.checkrow[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
 .checkrows { gap: 14px; }
 @media (max-width: 760px) { .detail { grid-template-columns: 1fr; } .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.pwrow { display: flex; gap: 8px; }
+.pwrow input { flex: 1; min-width: 0; }

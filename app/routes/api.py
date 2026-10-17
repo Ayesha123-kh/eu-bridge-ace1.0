@@ -38,6 +38,12 @@ def _reviewer_name(request: Request, typed: str) -> str:
     return user["name"] if user else typed
 
 
+def _require_login(request: Request) -> None:
+    from app import config
+    if config.REQUIRE_LOGIN and not request.state.user:
+        raise HTTPException(401, "Sign in to run a scan.")
+
+
 def _can_see(scan: dict, request: Request) -> bool:
     return scan.get("owner") in (None, _owner(request))
 
@@ -127,6 +133,7 @@ def _new_scan(conn, scan_id, owner, name, q, source, source_name=None, account=N
 
 @router.post("/scans")
 async def create_scan(body: ScanRequest, request: Request):
+    _require_login(request)
     _rate_limit(request)
     try:
         owner, repo = github.parse_repo_url(body.repo_url)
@@ -160,9 +167,10 @@ async def create_scan(body: ScanRequest, request: Request):
 @router.post("/assessments")
 def create_assessment(body: Questionnaire, request: Request):
     """No code is read or sent anywhere. Rule-based recommendations from the answers."""
+    _require_login(request)
     _rate_limit(request)
     q = body.model_dump()
-    name = (q.get("product_name") or "").strip() or "Product assessment"
+    name = (q.get("product_name") or q.get("company_name") or "").strip() or "Product assessment"
     scan_id = str(uuid.uuid4())
     conn = connect()
     try:
@@ -195,11 +203,13 @@ def create_assessment(body: Questionnaire, request: Request):
 @router.post("/scans/upload")
 async def create_scan_upload(request: Request, questionnaire: str = Form(...),
                              file: UploadFile = File(...)):
+    _require_login(request)
     _rate_limit(request)
     try:
         q = Questionnaire.model_validate_json(questionnaire).model_dump()
-    except ValidationError:
-        raise HTTPException(422, "The questionnaire is incomplete. Go back and check your answers.")
+    except ValidationError as e:
+        msg = str(e.errors()[0].get("msg", "")).replace("Value error, ", "")
+        raise HTTPException(422, msg or "The questionnaire is incomplete. Go back and check your answers.")
     data = await file.read(archive.MAX_ZIP_BYTES + 1)
     if len(data) > archive.MAX_ZIP_BYTES:
         raise HTTPException(413, "That ZIP is larger than 8 MB. Upload only the source code.")

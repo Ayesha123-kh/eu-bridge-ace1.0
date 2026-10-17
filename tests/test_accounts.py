@@ -3,11 +3,12 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
+from conftest import VALID
 from app.routes import api
 from app.services import github, scanner
 
 FILE = "import openai\n@app.post('/chat')\ndef chat():\n    print(f'User {email} said {msg}')\n    return client.chat.completions.create()\n"
-Q = {"description": "bot", "uses_llm": True, "processes_personal_data": True, "domain": "other"}
+Q = {**VALID}
 
 
 @pytest.fixture

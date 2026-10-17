@@ -25,8 +25,17 @@
     $('token-box').hidden = zip;
     $('zip-box').hidden = !zip;
   }
+  function syncIndustry() { $('industry-field').hidden = $('domain').value !== 'other'; }
   form.addEventListener('change', function (e) {
     if (e.target.name === 'visibility' || e.target.name === 'method') syncSource();
+    if (e.target.id === 'domain') syncIndustry();
+    if (e.target.type === 'checkbox' && e.target.checked) {
+      var group = form.querySelectorAll('input[name="' + e.target.name + '"]');
+      Array.prototype.forEach.call(group, function (c) {
+        if (c === e.target) return;
+        if (e.target.hasAttribute('data-exclusive') || c.hasAttribute('data-exclusive')) c.checked = false;
+      });
+    }
   });
 
   function show(n) {
@@ -60,10 +69,22 @@
         if (f.size > 8 * 1024 * 1024) { showError('That ZIP is larger than 8 MB. Upload only the source code.'); return false; }
       }
     }
-    if (n === 2 && !$('description').value.trim()) {
-      showError('Describe what the product does in a sentence.');
-      $('description').focus();
-      return false;
+    if (n === 2) {
+      if ($('company_name').value.trim().replace(/[^A-Za-z]/g, '').length < 2) { showError('Enter your company name.'); $('company_name').focus(); return false; }
+      if (!/^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,24}(\/.*)?$/i.test($('website').value.trim())) { showError('Enter your business website, for example https://example.com.'); $('website').focus(); return false; }
+      var d = $('description').value.trim();
+      if (d.length < 20 || d.split(/\s+/).filter(function (w) { return /[A-Za-z]{2,}/.test(w); }).length < 4) { showError('Describe what the product does in a full sentence, at least four words.'); $('description').focus(); return false; }
+      if (!checks('user_groups').length) { showError('Choose who uses the product.'); return false; }
+      if ($('domain').value === 'other' && $('industry').value.replace(/[^A-Za-z]/g, '').length < 3) { showError('Tell us your industry, since none of the listed areas fit.'); $('industry').focus(); return false; }
+    }
+    if (n === 3) {
+      var feats = checks('ai_features');
+      if (!feats.length) { showError('Choose what the AI does.'); return false; }
+      if (!checks('ai_providers').length) { showError('Choose the AI providers you use, or Not sure.'); return false; }
+      if (!checks('data_types').length) { showError('Choose the personal data you handle, or No personal data.'); return false; }
+      var risky = ['hiring', 'credit', 'education', 'health', 'biometrics', 'critical_infrastructure'].indexOf($('domain').value) !== -1 ||
+        feats.some(function (f) { return ['decisions_about_people', 'recommendations', 'biometric_emotion'].indexOf(f) !== -1; });
+      if (risky && radio('human_review') === 'not_applicable') { showError('Tell us whether a person reviews the AI\u2019s output, since it can affect people.'); return false; }
     }
     return true;
   }
@@ -74,6 +95,8 @@
   $('use-demo').addEventListener('click', function (e) {
     e.preventDefault();
     $('repo_url').value = 'https://github.com/Ayesha123-kh/eu-bridge-demo-chatbot';
+    $('company_name').value = 'Hoop Interactive';
+    $('website').value = 'https://example.com';
     $('product_name').value = 'HireBot';
     $('description').value = 'An AI assistant that screens job applicants’ CVs';
     form.querySelector('input[name="user_groups"][value="job_applicants"]').checked = true;
@@ -83,6 +106,7 @@
     form.querySelector('input[name="ai_providers"][value="openai"]').checked = true;
     form.querySelector('input[name="data_types"][value="contact"]').checked = true;
     form.querySelector('input[name="human_review"][value="sometimes"]').checked = true;
+    syncIndustry();
     $('repo_url').focus();
   });
 
@@ -104,12 +128,15 @@
     var external = providers.filter(function (p) { return ['openai', 'anthropic', 'google', 'groq', 'other'].indexOf(p) !== -1; });
     var usesLlm = features.indexOf('chat') !== -1 || features.indexOf('text_generation') !== -1 || external.length > 0;
     return {
+      company_name: $('company_name').value.trim(),
+      website: $('website').value.trim(),
+      industry: $('industry').value.trim(),
       product_name: $('product_name').value.trim(),
       description: $('description').value.trim(),
       user_groups: checks('user_groups'),
       eu_users: radio('eu_users'),
       uses_llm: usesLlm,
-      processes_personal_data: data.length > 0,
+      processes_personal_data: data.filter(function (x) { return x !== 'none'; }).length > 0,
       domain: $('domain').value,
       ai_features: features,
       data_types: data,
@@ -122,7 +149,7 @@
   form.addEventListener('submit', function (e) {
     e.preventDefault();
     clearError();
-    if (!validate(1) || !validate(2)) return;
+    if (!validate(1) || !validate(2) || !validate(3)) return;
     var q = questionnaire();
     var vis = radio('visibility');
     var priv = vis === 'private';
@@ -169,5 +196,6 @@
   });
 
   syncSource();
+  syncIndustry();
   show(1);
 })();

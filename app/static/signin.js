@@ -16,6 +16,15 @@
   document.getElementById('tab-signin').addEventListener('click', function () { setMode('signin'); });
   document.getElementById('tab-signup').addEventListener('click', function () { setMode('signup'); });
 
+  var toggle = document.getElementById('pw-toggle');
+  toggle.addEventListener('click', function () {
+    var pw = document.getElementById('password');
+    var show = pw.type === 'password';
+    pw.type = show ? 'text' : 'password';
+    toggle.textContent = show ? 'Hide' : 'Show';
+    toggle.setAttribute('aria-pressed', String(show));
+  });
+
   form.addEventListener('submit', function (e) {
     e.preventDefault();
     err.hidden = true;

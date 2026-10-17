@@ -26,3 +26,5 @@ APP_ENV = os.getenv("APP_ENV", "production")
 DATA_DIR = os.getenv("DATA_DIR", "./data")
 MAX_FILES = int(os.getenv("MAX_FILES", "40"))
 MAX_FILE_BYTES = int(os.getenv("MAX_FILE_BYTES", "40000"))
+
+REQUIRE_LOGIN = os.getenv("REQUIRE_LOGIN", "false").lower() in ("1", "true", "yes")

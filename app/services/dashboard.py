@@ -97,7 +97,7 @@ def build(owner: str) -> dict:
         if unreviewed:
             why.append("risk tier not yet confirmed")
         items.append({
-            "id": sc["id"], "name": display_name(sc), "company": sc["repo_name"] if sc["source"] == "assessment" else display_name(sc),
+            "id": sc["id"], "name": display_name(sc), "company": (json.loads(sc["questionnaire_json"]).get("company_name") or display_name(sc)),
             "source": sc["source"], "status": sc["status"],
             "status_label": STATUS_LABELS.get(sc["status"], sc["status"]),
             "risk_tier": sc["risk_tier"], "escalated": sc["risk_tier"] == "possibly_high",
