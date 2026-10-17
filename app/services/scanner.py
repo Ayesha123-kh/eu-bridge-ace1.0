@@ -15,6 +15,8 @@ SKIP_DIRS = {"node_modules", "dist", "build", ".next", "venv", ".venv", "__pycac
 CANDIDATE_CAP = 100
 BATCH_SIZE = 6
 CONFIDENCE_THRESHOLD = 0.6
+SNIPPET_MISS = ("The AI's snippet could not be located exactly in the file, so this fix can't be "
+                "applied automatically. Reject it and fix it by hand.")
 
 _PROMPT_PATH = os.path.join(os.path.dirname(__file__), "..", "prompts", "scanner_system.txt")
 
@@ -129,7 +131,7 @@ def process_findings(raw: list[RawFinding], files: dict[str, str]) -> list[dict]
         if aligned:
             d["original_snippet"], d["suggested_patch"] = aligned
         else:
-            reasons.append("AI's snippet could not be located exactly — edit the patch manually.")
+            reasons.append(SNIPPET_MISS)
         if d["confidence"] < CONFIDENCE_THRESHOLD:
             reasons.append(f"AI confidence is low ({d['confidence']:.2f}).")
         d["status"] = "needs_human" if reasons else "pending"

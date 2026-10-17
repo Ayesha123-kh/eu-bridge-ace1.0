@@ -71,8 +71,18 @@ def test_full_flow(client):
     ok = client.post(f"/api/findings/{pending[0]['id']}/review",
                      json={"action": "approve", "reviewer": "Ayesha", "reason": "removes PII"})
     assert ok.status_code == 200
+    # a finding whose snippet can't be located can't be approved, even with an edited patch
+    for action in ("approve", "edit_and_approve"):
+        r = client.post(f"/api/findings/{needs[0]['id']}/review",
+                        json={"action": action, "reviewer": "Ayesha", "reason": "try anyway",
+                              "final_patch": "x"})
+        assert r.status_code == 409
     client.post(f"/api/findings/{needs[0]['id']}/review",
                 json={"action": "reject", "reviewer": "Ayesha", "reason": "not applicable"})
+
+    # escalated scan: PR blocked until a person confirms the risk tier
+    r = client.post(f"/api/scans/{sid}/pr")
+    assert r.status_code == 409 and "risk tier" in r.json()["detail"]
     assert client.post(f"/api/scans/{sid}/risk-review",
                        json={"reviewer": "Counsel", "reason": "confirmed high risk"}).status_code == 200
 

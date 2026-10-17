@@ -28,9 +28,9 @@ Most compliance tools produce a report. EU-Bridge produces a **human-reviewed pu
 
 | Gate | Rule |
 |---|---|
-| Risk tier | Escalated scans need a reviewer's name and reason before the tier counts as confirmed. |
+| Risk tier | Escalated scans need a reviewer's name and reason to confirm the tier. No pull request can be opened until they do. |
 | Every fix | Approve, edit then approve, or reject. Reviewer name and a reason of 5+ characters are enforced by the server. There is no bulk approve. |
-| Unsure findings | Low confidence (under 0.6) or an unmatched snippet becomes `needs_human`. |
+| Unsure findings | Low confidence (under 0.6) or an unmatched snippet becomes `needs_human`. An unmatched snippet can only be rejected and fixed by hand. |
 | Pull request | Blocked while any finding is pending. Failed patches are reported, not dropped. |
 | Merge | A person merges the PR on GitHub. |
 
@@ -70,8 +70,7 @@ curl -X POST http://localhost:8000/api/scans \
 
 ## Status
 
-Built: scanner, triage, review rules, patcher, PR creation, audit log, JSON API, tests.
-Not built yet: the HTML pages (scan form, review page, audit page). Reviewers currently use the JSON API.
+Built: scanner, triage, review rules, patcher, PR creation, audit log, JSON API, web UI (scan form, review page, audit page), tests.
 
 ## Run locally
 

@@ -136,6 +136,9 @@ def review_finding(finding_id: str, body: ReviewRequest):
             raise HTTPException(409, "This scan is no longer open for review.")
         if body.action == "edit_and_approve" and not (body.final_patch or "").strip():
             raise HTTPException(422, "edit_and_approve requires a non-empty final_patch.")
+        if body.action != "reject" and scanner.SNIPPET_MISS in (f["needs_human_reason"] or ""):
+            raise HTTPException(409, "This fix can't be applied automatically because the AI's "
+                                     "snippet doesn't match the file. Reject it and fix it by hand.")
         status = "rejected" if body.action == "reject" else "approved"
         final_patch = body.final_patch if body.action == "edit_and_approve" else None
         before = f["status"]
@@ -178,6 +181,9 @@ async def create_pr(scan_id: str):
             raise HTTPException(409, f"A pull request is already open: {scan['pr_url']}")
         if scan["status"] not in ("ready_for_review", "escalated"):
             raise HTTPException(409, "This scan is not ready for a pull request.")
+        if scan["status"] == "escalated" and not scan.get("risk_reviewed_by"):
+            raise HTTPException(409, "This scan is escalated. A person must confirm the risk "
+                                     "tier before a pull request can be opened.")
         if any(f["status"] == "pending" for f in findings):
             raise HTTPException(409, "Review every pending finding before creating the PR.")
         approved = [f for f in findings if f["status"] == "approved"]
