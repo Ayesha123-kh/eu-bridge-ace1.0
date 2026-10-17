@@ -105,3 +105,20 @@ def test_rejects_non_github_url(client):
     r = client.post("/api/scans", json={"repo_url": "https://evil.com/o/r",
                                         "questionnaire": QUESTIONNAIRE})
     assert r.status_code == 400
+
+
+def test_ui_pages_render(client):
+    for path, needle in (("/", "Scan a repository"), ("/audit", "Audit log"),
+                         ("/scans/abc", 'data-scan-id="abc"')):
+        r = client.get(path)
+        assert r.status_code == 200 and needle in r.text
+        assert "reviewed by a human" in r.text and "not legal advice" in r.text
+    assert client.get("/static/app.css").status_code == 200
+    assert client.get("/static/review.js").status_code == 200
+
+
+def test_audit_page_lists_entries(client):
+    client.post("/api/scans", json={"repo_url": "https://github.com/o/r",
+                                    "questionnaire": QUESTIONNAIRE})
+    page = client.get("/audit").text
+    assert "Scan started" in page and "AI suggested a fix" in page

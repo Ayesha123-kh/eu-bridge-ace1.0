@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}Review · {{ app_name }}{% endblock %}
+{% block content %}
+<div id="app" data-scan-id="{{ scan_id }}">
+  <p class="loading">Loading scan…</p>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/review.js"></script>{% endblock %}

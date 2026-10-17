@@ -52,7 +52,8 @@ def log(actor: str, action: str, scan_id: str | None, finding_id: str | None = N
         conn.execute("COMMIT")
         return {"seq": cur.lastrowid, **entry, "prev_hash": prev, "hash": h}
     except Exception:
-        conn.execute("ROLLBACK")
+        if conn.in_transaction:
+            conn.execute("ROLLBACK")
         raise
     finally:
         conn.close()

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ app_name }}{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <div class="notice"><div class="wrap">EU-Bridge uses AI to suggest fixes. Every change is reviewed by a human.</div></div>
+  <header class="top">
+    <div class="wrap bar">
+      <a class="brand" href="/">{{ app_name }}</a>
+      {% if app_env == "staging" %}<span class="env">Staging</span>{% endif %}
+      <nav aria-label="Main">
+        <a href="/" {% if active == "new" %}aria-current="page"{% endif %}>New scan</a>
+        <a href="/audit" {% if active == "audit" %}aria-current="page"{% endif %}>Audit log</a>
+      </nav>
+    </div>
+  </header>
+  <main class="wrap">{% block content %}{% endblock %}</main>
+  <footer class="wrap foot">Decision support, not legal advice.</footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
