@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS scans (
     risk_reviewed_at TEXT,
     source TEXT NOT NULL DEFAULT 'public',
     source_name TEXT,
+    owner TEXT,
     created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS findings (
@@ -41,6 +42,18 @@ CREATE TABLE IF NOT EXISTS findings (
     reviewer TEXT,
     review_reason TEXT,
     reviewed_at TEXT
+);
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sessions (
+    token_hash TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    expires_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS scan_files (
     scan_id TEXT NOT NULL,
@@ -74,7 +87,8 @@ def init_db() -> None:
     try:
         conn.executescript(SCHEMA)
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(scans)")}
-        for name, ddl in (("source", "TEXT NOT NULL DEFAULT 'public'"), ("source_name", "TEXT")):
+        for name, ddl in (("source", "TEXT NOT NULL DEFAULT 'public'"), ("source_name", "TEXT"),
+                          ("owner", "TEXT")):
             if name not in cols:
                 conn.execute(f"ALTER TABLE scans ADD COLUMN {name} {ddl}")
         conn.commit()

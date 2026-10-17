@@ -3,26 +3,42 @@
 {% block content %}
 <section class="intro">
   <h1>Audit log</h1>
-  <p class="lede">Every scan, AI suggestion and human decision is recorded here. Each entry is chained to the one before it, so a changed entry is detected when you verify.</p>
+  <p class="lede">Every scan, suggestion and human decision for your scans. Each entry is chained to the one before it, so a changed entry is detected when you verify.</p>
 </section>
 
 <div class="toolbar">
   <button class="btn primary" id="verify-btn" type="button">Verify log</button>
-  <a class="btn" href="/api/audit/export">Export as JSON</a>
+  <a class="btn" href="/api/audit/export">Export my entries as JSON</a>
 </div>
 <div id="verify-result" class="callout" hidden role="status"></div>
 
 {% if entries %}
+<div class="filters" id="audit-filters">
+  <div class="fgroup grow"><label for="f-q">Search</label><input id="f-q" type="search" placeholder="Search detail, person or company"></div>
+  <div class="fgroup"><label for="f-scan">Company or scan</label>
+    <select id="f-scan"><option value="">All</option>
+      {% for s in scans %}<option value="{{ s.id }}" {% if s.id == selected_scan %}selected{% endif %}>{{ names[s.id] }}</option>{% endfor %}
+    </select></div>
+  <div class="fgroup"><label for="f-who">Who</label>
+    <select id="f-who"><option value="">Everyone</option><option value="ai">AI</option><option value="system">System</option>
+      {% for p in people %}<option value="{{ p }}">{{ p }}</option>{% endfor %}</select></div>
+  <div class="fgroup"><label for="f-action">What happened</label>
+    <select id="f-action"><option value="">Anything</option>
+      {% for key, label in actions %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></div>
+</div>
+<p class="count" id="audit-count" aria-live="polite"></p>
 <div class="table-wrap">
-  <table class="audit">
-    <thead><tr><th class="num">#</th><th>Time</th><th>Who</th><th>What happened</th><th>Detail</th><th>Fingerprint</th></tr></thead>
+  <table class="audit" id="audit-table">
+    <thead><tr><th class="num">#</th><th>Time</th><th>Who</th><th>Company</th><th>What happened</th><th>Detail</th><th>Fingerprint</th></tr></thead>
     <tbody>
     {% for e in entries %}
-      <tr>
+      <tr data-scan="{{ e.scan_id }}" data-who="{{ e.actor if e.human else e.actor_kind }}" data-action="{{ e.action_key }}"
+          data-text="{{ (e.summary ~ ' ' ~ e.actor ~ ' ' ~ e.company ~ ' ' ~ e.action)|lower }}">
         <td class="num">{{ e.seq }}</td>
         <td class="nowrap">{{ e.when }}</td>
         <td>{% if e.human %}<strong>{{ e.actor }}</strong>{% else %}{{ e.actor }}{% endif %}</td>
-        <td>{% if e.scan_id %}<a href="/scans/{{ e.scan_id }}">{{ e.action }}</a>{% else %}{{ e.action }}{% endif %}</td>
+        <td>{% if e.scan_id %}<a href="/scans/{{ e.scan_id }}">{{ e.company }}</a>{% endif %}</td>
+        <td>{{ e.action }}</td>
         <td class="detail">{{ e.summary }}</td>
         <td><code>{{ e.hash }}</code></td>
       </tr>
@@ -30,8 +46,10 @@
     </tbody>
   </table>
 </div>
+<p class="empty" id="audit-empty" hidden>No entries match these filters. <button class="linkbtn" type="button" id="f-clear">Clear filters</button></p>
+<p><button class="btn" id="more-btn" type="button" hidden>Show more</button></p>
 {% else %}
-<p class="empty">No entries yet. Entries appear after the first scan.</p>
+<p class="empty">No entries yet. Entries appear after your first scan. <a href="/new">Run a scan</a>.</p>
 {% endif %}
 {% endblock %}
 {% block scripts %}<script src="/static/audit.js"></script>{% endblock %}

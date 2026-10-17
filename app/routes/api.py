@@ -13,13 +13,33 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import ValidationError
 
 from app.db import connect
-from app.models import PrRequest, Questionnaire, RegulationQuery, ReviewRequest, RiskReviewRequest, ScanRequest
-from app.services import archive, assessment, audit, github, patcher, regulations, scanner, triage
+from app.models import LoginRequest, PrRequest, Questionnaire, RegulationQuery, SignupRequest, ReviewRequest, RiskReviewRequest, ScanRequest
+from app.services import archive, assessment, audit, auth, dashboard, github, patcher, regulations, scanner, triage
 
 router = APIRouter(prefix="/api")
 
+SESSION_COOKIE = "eub_session"
+GUEST_COOKIE = "eub_guest"
 RATE_LIMIT = 10  # scans per minute per client
 _hits: dict[str, deque] = defaultdict(deque)
+
+
+def is_https(request: Request) -> bool:
+    return request.headers.get("x-forwarded-proto", request.url.scheme) == "https"
+
+
+def _owner(request: Request) -> str:
+    return request.state.owner
+
+
+def _reviewer_name(request: Request, typed: str) -> str:
+    """Signed-in users are always recorded under their account name."""
+    user = request.state.user
+    return user["name"] if user else typed
+
+
+def _can_see(scan: dict, request: Request) -> bool:
+    return scan.get("owner") in (None, _owner(request))
 
 
 def _now() -> str:
@@ -48,10 +68,11 @@ def _update(conn, table: str, id_: str, **fields) -> None:
     conn.commit()
 
 
-def _scan_payload(conn, scan_id: str) -> dict:
+def _scan_payload(conn, scan_id: str, request: Request) -> dict:
     scan = _one(conn, "SELECT * FROM scans WHERE id=?", scan_id)
-    if not scan:
+    if not scan or not _can_see(scan, request):
         raise HTTPException(404, "Scan not found")
+    scan.pop("owner", None)
     scan["questionnaire"] = json.loads(scan.pop("questionnaire_json"))
     scan["notes"] = json.loads(scan.pop("scan_notes_json") or "{}")
     scan["has_files"] = bool(conn.execute(
@@ -96,11 +117,11 @@ def _store_results(conn, scan_id: str, q: dict, result: dict, extra: dict | None
             "findings": len(result["findings"])}
 
 
-def _new_scan(conn, scan_id, owner, name, q, source, source_name=None) -> None:
+def _new_scan(conn, scan_id, owner, name, q, source, source_name=None, account=None) -> None:
     conn.execute(
         "INSERT INTO scans (id, repo_owner, repo_name, questionnaire_json, status, source,"
-        " source_name, created_at) VALUES (?,?,?,?,?,?,?,?)",
-        (scan_id, owner, name, json.dumps(q), "scanning", source, source_name, _now()))
+        " source_name, owner, created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+        (scan_id, owner, name, json.dumps(q), "scanning", source, source_name, account, _now()))
     conn.commit()
 
 
@@ -116,7 +137,7 @@ async def create_scan(body: ScanRequest, request: Request):
     scan_id = str(uuid.uuid4())
     conn = connect()
     try:
-        _new_scan(conn, scan_id, owner, repo, q, body.source)
+        _new_scan(conn, scan_id, owner, repo, q, body.source, account=_owner(request))
         audit.log("system", "scan_started", scan_id,
                   details={"repo": f"{owner}/{repo}", "source": body.source})
         try:
@@ -145,7 +166,7 @@ def create_assessment(body: Questionnaire, request: Request):
     scan_id = str(uuid.uuid4())
     conn = connect()
     try:
-        _new_scan(conn, scan_id, "assessment", name, q, "assessment")
+        _new_scan(conn, scan_id, "assessment", name, q, "assessment", account=_owner(request))
         audit.log("system", "scan_started", scan_id, details={"repo": f"assessment/{name}", "source": "assessment"})
         t = triage.triage(q, [])
         items = assessment.build_items(q, t["status"] == "escalated")
@@ -190,7 +211,7 @@ async def create_scan_upload(request: Request, questionnaire: str = Form(...),
     scan_id = str(uuid.uuid4())
     conn = connect()
     try:
-        _new_scan(conn, scan_id, "uploaded", stem, q, "private_zip", file.filename)
+        _new_scan(conn, scan_id, "uploaded", stem, q, "private_zip", file.filename, account=_owner(request))
         audit.log("system", "scan_started", scan_id,
                   details={"repo": f"uploaded/{stem}", "source": "private_zip"})
         try:
@@ -209,22 +230,25 @@ async def create_scan_upload(request: Request, questionnaire: str = Form(...),
 
 
 @router.get("/scans/{scan_id}")
-def get_scan(scan_id: str):
+def get_scan(scan_id: str, request: Request):
     conn = connect()
     try:
-        return _scan_payload(conn, scan_id)
+        return _scan_payload(conn, scan_id, request)
     finally:
         conn.close()
 
 
 @router.post("/findings/{finding_id}/review")
-def review_finding(finding_id: str, body: ReviewRequest):
+def review_finding(finding_id: str, body: ReviewRequest, request: Request):
     conn = connect()
     try:
         f = _one(conn, "SELECT * FROM findings WHERE id=?", finding_id)
         if not f:
             raise HTTPException(404, "Finding not found")
         scan = _one(conn, "SELECT * FROM scans WHERE id=?", f["scan_id"])
+        if not _can_see(scan, request):
+            raise HTTPException(404, "Finding not found")
+        reviewer = _reviewer_name(request, body.reviewer)
         if scan["status"] in ("pr_opened", "scanning", "failed") or f["status"] == "applied":
             raise HTTPException(409, "This scan is no longer open for review.")
         if body.action == "edit_and_approve" and not (body.final_patch or "").strip():
@@ -233,10 +257,10 @@ def review_finding(finding_id: str, body: ReviewRequest):
         final_patch = body.final_patch if body.action == "edit_and_approve" else None
         before = f["status"]
         _update(conn, "findings", finding_id, status=status, final_patch=final_patch,
-                reviewer=body.reviewer, review_reason=body.reason, reviewed_at=_now())
+                reviewer=reviewer, review_reason=body.reason, reviewed_at=_now())
         action = {"approve": "approved", "edit_and_approve": "edited_and_approved",
                   "reject": "rejected"}[body.action]
-        audit.log(body.reviewer, action, f["scan_id"], finding_id, {
+        audit.log(reviewer, action, f["scan_id"], finding_id, {
             "rule_id": f["rule_id"], "reason": body.reason, "status_before": before})
         return {"finding_id": finding_id, "status": status}
     finally:
@@ -244,28 +268,29 @@ def review_finding(finding_id: str, body: ReviewRequest):
 
 
 @router.post("/scans/{scan_id}/risk-review")
-def risk_review(scan_id: str, body: RiskReviewRequest):
+def risk_review(scan_id: str, body: RiskReviewRequest, request: Request):
     conn = connect()
     try:
         scan = _one(conn, "SELECT * FROM scans WHERE id=?", scan_id)
-        if not scan:
+        if not scan or not _can_see(scan, request):
             raise HTTPException(404, "Scan not found")
+        reviewer = _reviewer_name(request, body.reviewer)
         if scan["status"] != "escalated":
             raise HTTPException(409, "This scan is not escalated.")
-        _update(conn, "scans", scan_id, risk_reviewed_by=body.reviewer,
+        _update(conn, "scans", scan_id, risk_reviewed_by=reviewer,
                 risk_reviewed_reason=body.reason, risk_reviewed_at=_now())
-        audit.log(body.reviewer, "risk_reviewed", scan_id,
+        audit.log(reviewer, "risk_reviewed", scan_id,
                   details={"risk_tier": scan["risk_tier"], "reason": body.reason})
-        return {"scan_id": scan_id, "risk_reviewed_by": body.reviewer}
+        return {"scan_id": scan_id, "risk_reviewed_by": reviewer}
     finally:
         conn.close()
 
 
 @router.post("/scans/{scan_id}/pr")
-async def create_pr(scan_id: str, body: PrRequest | None = None):
+async def create_pr(scan_id: str, request: Request, body: PrRequest | None = None):
     conn = connect()
     try:
-        payload = _scan_payload(conn, scan_id)
+        payload = _scan_payload(conn, scan_id, request)
         scan, findings = payload["scan"], payload["findings"]
         if scan["status"] == "pr_opened":
             raise HTTPException(409, f"A pull request is already open: {scan['pr_url']}")
@@ -346,11 +371,11 @@ async def create_pr(scan_id: str, body: PrRequest | None = None):
 
 
 @router.get("/scans/{scan_id}/patch")
-def export_patch(scan_id: str):
+def export_patch(scan_id: str, request: Request):
     """Approved fixes for an uploaded ZIP, as a ZIP with patched files and a unified diff."""
     conn = connect()
     try:
-        payload = _scan_payload(conn, scan_id)
+        payload = _scan_payload(conn, scan_id, request)
         scan, findings = payload["scan"], payload["findings"]
         if scan["source"] != "private_zip":
             raise HTTPException(409, "Downloads are only available for uploaded ZIP scans.")
@@ -404,10 +429,10 @@ def export_patch(scan_id: str):
 
 
 @router.get("/scans/{scan_id}/checklist")
-def export_checklist(scan_id: str):
+def export_checklist(scan_id: str, request: Request):
     conn = connect()
     try:
-        payload = _scan_payload(conn, scan_id)
+        payload = _scan_payload(conn, scan_id, request)
         scan, findings = payload["scan"], payload["findings"]
         if scan["source"] != "assessment":
             raise HTTPException(409, "Checklists are only available for assessments.")
@@ -425,12 +450,12 @@ def export_checklist(scan_id: str):
 
 
 @router.delete("/scans/{scan_id}/files")
-def delete_files(scan_id: str):
+def delete_files(scan_id: str, request: Request):
     """Remove the uploaded source files from this server."""
     conn = connect()
     try:
         scan = _one(conn, "SELECT * FROM scans WHERE id=?", scan_id)
-        if not scan:
+        if not scan or not _can_see(scan, request):
             raise HTTPException(404, "Scan not found")
         if scan["source"] != "private_zip":
             raise HTTPException(409, "Only uploaded ZIP scans store files.")
@@ -453,6 +478,75 @@ def audit_verify():
 
 
 @router.get("/audit/export")
-def audit_export():
-    return JSONResponse(audit.export(), headers={
+def audit_export(request: Request):
+    conn = connect()
+    try:
+        rows = [dict(r) for r in conn.execute(
+            "SELECT a.* FROM audit_log a JOIN scans s ON s.id = a.scan_id WHERE s.owner = ? ORDER BY a.seq",
+            (_owner(request),))]
+    finally:
+        conn.close()
+    return JSONResponse(rows, headers={
         "Content-Disposition": 'attachment; filename="eu-bridge-audit-log.json"'})
+
+
+# ---------------------------------------------------------------- accounts
+_login_hits: dict[str, deque] = defaultdict(deque)
+
+
+def _login_limit(request: Request) -> None:
+    ip = request.client.host if request.client else "unknown"
+    q = _login_hits[ip]
+    cutoff = time.monotonic() - 60
+    while q and q[0] < cutoff:
+        q.popleft()
+    if len(q) >= 10:
+        raise HTTPException(429, "Too many attempts. Please wait a minute.")
+    q.append(time.monotonic())
+
+
+def _start_session(request: Request, user: dict) -> JSONResponse:
+    claimed = auth.claim_guest_scans(request.state.guest_id, user["id"])
+    token = auth.create_session(user["id"])
+    resp = JSONResponse({"user": user, "claimed_scans": claimed})
+    resp.set_cookie(SESSION_COOKIE, token, max_age=60 * 60 * 24 * auth.SESSION_DAYS, httponly=True,
+                    samesite="lax", secure=is_https(request))
+    return resp
+
+
+@router.post("/auth/signup")
+def signup(body: SignupRequest, request: Request):
+    _login_limit(request)
+    try:
+        user = auth.signup(body.name, body.email, body.password)
+    except auth.AuthError as e:
+        raise HTTPException(400, str(e))
+    return _start_session(request, user)
+
+
+@router.post("/auth/login")
+def login(body: LoginRequest, request: Request):
+    _login_limit(request)
+    try:
+        user = auth.login(body.email, body.password)
+    except auth.AuthError as e:
+        raise HTTPException(401, str(e))
+    return _start_session(request, user)
+
+
+@router.post("/auth/logout")
+def logout(request: Request):
+    auth.end_session(request.cookies.get(SESSION_COOKIE))
+    resp = JSONResponse({"ok": True})
+    resp.delete_cookie(SESSION_COOKIE)
+    return resp
+
+
+@router.get("/auth/me")
+def me(request: Request):
+    return {"user": request.state.user}
+
+
+@router.get("/dashboard")
+def dashboard_data(request: Request):
+    return dashboard.build(_owner(request))

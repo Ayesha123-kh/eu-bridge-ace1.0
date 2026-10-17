@@ -4,97 +4,10 @@
 <section class="pagehead">
   <div class="intro">
     <h1>Dashboard</h1>
-    <p class="lede">Where your scans stand and what needs a person to decide.</p>
+    <p class="lede" id="dash-sub">{% if user %}Your scans, decisions and history.{% else %}Your scans on this device. <a href="/signin?mode=signup">Create an account</a> to keep them across devices.{% endif %}</p>
   </div>
   <a class="btn primary" href="/new">New scan</a>
 </section>
-
-{% if stats.scans == 0 %}
-<section class="panel emptystate">
-  <h2>No scans yet</h2>
-  <p>Scan a repository or upload your code. EU-Bridge drafts fixes for EU AI Act and GDPR issues, and you approve each one before anything is changed.</p>
-  <p><a class="btn primary" href="/new">Run your first scan</a></p>
-</section>
-{% else %}
-
-<section class="stats" aria-label="Summary">
-  <div class="stat"><span class="n">{{ stats.scans }}</span><span class="l">Scans run</span></div>
-  <div class="stat"><span class="n">{{ stats.waiting }}</span><span class="l">Decisions waiting</span></div>
-  <div class="stat"><span class="n">{{ stats.approved }}</span><span class="l">Fixes approved</span></div>
-  <div class="stat"><span class="n">{{ stats.delivered }}</span><span class="l">Delivered as PR or download</span></div>
-</section>
-
-<section class="block">
-  <h2>Needs your attention</h2>
-  {% if attention %}
-  <ul class="attention">
-    {% for a in attention %}
-    <li><div><strong>{{ a.name }}</strong><span class="why">{{ a.why }}</span></div><a class="btn small" href="/scans/{{ a.id }}">Continue review</a></li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p class="empty">Nothing is waiting for a decision.</p>
-  {% endif %}
-</section>
-
-<div class="two">
-  <section class="block">
-    <h2>Findings by check</h2>
-    <p class="legend"><span class="k ok"></span>Approved <span class="k rej"></span>Rejected <span class="k wait"></span>Waiting</p>
-    <div class="checkrows">
-      {% for c in checks %}
-      <div class="checkrow">
-        <div class="top"><strong>{{ c.name }}</strong><span class="count">{{ c.found }} found</span></div>
-        <div class="stack" role="img" aria-label="{{ c.approved }} approved, {{ c.rejected }} rejected, {{ c.waiting }} waiting">
-          {% if c.found %}
-          <i class="ok" style="width: {{ c.p_ok }}%"></i><i class="rej" style="width: {{ c.p_rej }}%"></i><i class="wait" style="width: {{ c.p_wait }}%"></i>
-          {% endif %}
-        </div>
-        <div class="sub">{{ c.rule }} · {{ c.approved }} approved · {{ c.rejected }} rejected · {{ c.waiting }} waiting</div>
-      </div>
-      {% endfor %}
-      <div class="checkrow">
-        <div class="top"><strong>Risk tier</strong><span class="count">{{ risk.escalated }} escalated</span></div>
-        <div class="sub">AIA-RISK · {{ risk.confirmed }} of {{ risk.escalated }} confirmed by a person</div>
-      </div>
-    </div>
-  </section>
-
-  <section class="block">
-    <h2>Recent activity</h2>
-    <ul class="activity">
-      {% for e in activity %}
-      <li>
-        <div class="what">{% if e.scan_id %}<a href="/scans/{{ e.scan_id }}">{{ e.action }}</a>{% else %}{{ e.action }}{% endif %}</div>
-        <div class="meta">{{ e.actor }} · {{ e.when }}</div>
-        {% if e.summary %}<div class="sum">{{ e.summary }}</div>{% endif %}
-      </li>
-      {% endfor %}
-    </ul>
-    <p class="integrity {{ 'ok' if integrity.ok else 'bad' }}">
-      {% if integrity.ok %}Audit log intact ({{ integrity.entries }} entries).{% else %}Audit log has been changed at entry #{{ integrity.broken_at }}.{% endif %}
-      <a href="/audit">Open the audit log</a>
-    </p>
-  </section>
-</div>
-
-<section class="block">
-  <h2>Recent scans</h2>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Source</th><th>Status</th><th class="num">Findings</th><th>Scanned</th></tr></thead>
-      <tbody>
-      {% for s in scans %}
-        <tr>
-          <td><a href="/scans/{{ s.id }}">{% if s.source == 'assessment' %}{{ s.repo_name }}{% else %}{{ s.repo_owner }}/{{ s.repo_name }}{% endif %}</a>{% if s.source == 'private_zip' %} <span class="tag">ZIP</span>{% elif s.source == 'private_token' %} <span class="tag">Private</span>{% elif s.source == 'assessment' %} <span class="tag">Assessment</span>{% endif %}</td>
-          <td>{{ s.status_label }}</td>
-          <td class="num">{{ s.findings }}</td>
-          <td>{{ s.when }}</td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
-{% endif %}
+<div id="dash"><p class="loading">Loading your dashboard…</p></div>
 {% endblock %}
+{% block scripts %}<script src="/static/dashboard.js"></script>{% endblock %}

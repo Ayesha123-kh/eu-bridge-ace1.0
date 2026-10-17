@@ -18,7 +18,7 @@ Most compliance tools produce a report. EU-Bridge produces a **human-reviewed pu
 
 1. A reviewer chooses **public repository** or **private code**, then answers a three-step questionnaire (the code, the product, and the data and AI it uses). Private code can be read with a fine-grained access token, or uploaded as a ZIP.
 2. The app reads the repo, keeps the files that contain AI-related code, and asks OpenAI for structured findings. The AI only drafts. It never changes code.
-3. The app checks that each suggested snippet exists exactly once in the file. Findings it can't place, or that the AI is unsure about, are marked `needs_human`.
+3. The app discards suggestions that lack evidence: the quoted code must exist in the file, UI notices only apply to files that serve end users (not libraries or SDKs), log findings must involve user data, and a fix must change real behaviour (no comment-only patches, no calls to helpers that do not exist). It then checks that each remaining snippet exists exactly once in the file. Findings it can't place, or that the AI is unsure about, are marked `needs_human`.
 4. Risk triage is deterministic. Hiring, credit, education, health, biometrics and critical-infrastructure products are **escalated**, and the AI doesn't decide the tier. A person confirms it.
 5. A reviewer approves, edits then approves, or rejects each finding, one at a time, with a name and a reason.
 6. When nothing is pending and at least one fix is approved, the app commits the approved fixes to a new branch and opens a pull request that lists each fix and who approved it. For uploaded ZIPs, the reviewer downloads a ZIP with the fixed files, a patch and the approval list instead.
@@ -74,15 +74,24 @@ curl -X POST http://localhost:8000/api/scans \
   -d '{"repo_url":"https://github.com/Ayesha123-kh/eu-bridge-demo-chatbot","questionnaire":{"description":"CV screening bot","uses_llm":true,"processes_personal_data":true,"domain":"hiring"}}'
 ```
 
+## Accounts and history
+
+- **Sign in is optional.** Anyone can use EU-Bridge as a guest. Creating an account (name, email, password) keeps history across devices, and scans made as a guest on that device move into the account.
+- **Each owner sees only their own scans,** dashboard and audit entries. Other people get a 404 for your scan links.
+- **Signed-in decisions are recorded under the account name,** and the server ignores any other name sent by the browser.
+- Passwords are hashed with scrypt, sessions are random tokens stored hashed, and cookies are HttpOnly and SameSite=Lax.
+- **Storage:** SQLite lives in `DATA_DIR`. Mount a persistent volume there (Railway: volume at `/data`, `DATA_DIR=/data`), otherwise history is lost on every redeploy.
+
 ## Pages
 
 | Page | Purpose |
 |---|---|
-| `/` | Dashboard: totals, scans that need attention, findings by check, recent activity, audit integrity |
+| `/` | Interactive dashboard: clickable totals, search and filters, scan history by scan or company, expandable details, findings by check, recent activity |
+| `/signin` | Sign in or create an account |
 | `/explore` | Pick what your business offers and see which EU rules apply (AI Act, GDPR, NIS2, CRA and more), what each asks, and key dates |
 | `/new` | Three-step form: public repo, private code (token or ZIP) or no code (assessment) |
 | `/scans/{id}` | Review page: the four checks, diffs, approve / edit / reject, pull request or download |
-| `/audit` | Audit log with Verify and Export |
+| `/audit` | Audit log with filters by company, person and action, Verify and Export |
 
 ## Not sharing code
 
