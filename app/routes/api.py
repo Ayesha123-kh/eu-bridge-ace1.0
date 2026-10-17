@@ -14,7 +14,7 @@ from pydantic import ValidationError
 
 from app.db import connect
 from app.models import PrRequest, Questionnaire, RegulationQuery, ReviewRequest, RiskReviewRequest, ScanRequest
-from app.services import archive, audit, github, patcher, regulations, scanner, triage
+from app.services import archive, assessment, audit, github, patcher, regulations, scanner, triage
 
 router = APIRouter(prefix="/api")
 
@@ -54,6 +54,8 @@ def _scan_payload(conn, scan_id: str) -> dict:
         raise HTTPException(404, "Scan not found")
     scan["questionnaire"] = json.loads(scan.pop("questionnaire_json"))
     scan["notes"] = json.loads(scan.pop("scan_notes_json") or "{}")
+    scan["has_files"] = bool(conn.execute(
+        "SELECT 1 FROM scan_files WHERE scan_id=? LIMIT 1", (scan_id,)).fetchone())
     findings = [dict(r) for r in conn.execute(
         "SELECT * FROM findings WHERE scan_id=? ORDER BY rowid", (scan_id,))]
     counts = {"suggested": len(findings)}
@@ -66,7 +68,7 @@ def _scan_payload(conn, scan_id: str) -> dict:
     return {"scan": scan, "findings": findings, "counts": counts}
 
 
-def _store_results(conn, scan_id: str, q: dict, result: dict) -> dict:
+def _store_results(conn, scan_id: str, q: dict, result: dict, extra: dict | None = None) -> dict:
     """Save findings, run triage, write audit entries. Returns the API response body."""
     for f in result["findings"]:
         fid = str(uuid.uuid4())
@@ -84,7 +86,7 @@ def _store_results(conn, scan_id: str, q: dict, result: dict) -> dict:
             "status": f["status"]})
     t = triage.triage(q, result["risk_signals"])
     notes = {**result["stats"], "warnings": result["warnings"],
-             "risk_signals": result["risk_signals"]}
+             "risk_signals": result["risk_signals"], **(extra or {})}
     _update(conn, "scans", scan_id, risk_tier=t["risk_tier"], status=t["status"],
             escalation_reason=t["escalation_reason"], scan_notes_json=json.dumps(notes))
     if t["status"] == "escalated":
@@ -127,7 +129,44 @@ async def create_scan(body: ScanRequest, request: Request):
             _update(conn, "scans", scan_id, status="failed", error=str(e))
             return JSONResponse({"scan_id": scan_id, "status": "failed", "error": str(e)},
                                 status_code=502)
-        return _store_results(conn, scan_id, q, result)
+        lic = (info.get("license") or {}).get("spdx_id")
+        return _store_results(conn, scan_id, q, result, {"license": lic if lic != "NOASSERTION" else None,
+                                                         "repo_private": bool(info.get("private"))})
+    finally:
+        conn.close()
+
+
+@router.post("/assessments")
+def create_assessment(body: Questionnaire, request: Request):
+    """No code is read or sent anywhere. Rule-based recommendations from the answers."""
+    _rate_limit(request)
+    q = body.model_dump()
+    name = (q.get("product_name") or "").strip() or "Product assessment"
+    scan_id = str(uuid.uuid4())
+    conn = connect()
+    try:
+        _new_scan(conn, scan_id, "assessment", name, q, "assessment")
+        audit.log("system", "scan_started", scan_id, details={"repo": f"assessment/{name}", "source": "assessment"})
+        t = triage.triage(q, [])
+        items = assessment.build_items(q, t["status"] == "escalated")
+        for it in items:
+            fid = str(uuid.uuid4())
+            conn.execute(
+                "INSERT INTO findings (id, scan_id, rule_id, title, explanation, severity, confidence,"
+                " file_path, original_snippet, suggested_patch, status) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (fid, scan_id, it["rule_id"], it["title"], it["explanation"], it["severity"], 1.0,
+                 "Your product or code", "", it["patch"], "pending"))
+            conn.commit()
+            audit.log("system", "finding_created", scan_id, fid, {
+                "rule_id": it["rule_id"], "severity": it["severity"], "source": "rules"})
+        _update(conn, "scans", scan_id, risk_tier=t["risk_tier"], status=t["status"],
+                escalation_reason=t["escalation_reason"], scan_notes_json=json.dumps(
+                    {"files_scanned": 0, "warnings": [], "assessment": True}))
+        if t["status"] == "escalated":
+            audit.log("system", "escalated", scan_id, details={
+                "risk_tier": t["risk_tier"], "reason": t["escalation_reason"]})
+        return {"scan_id": scan_id, "status": t["status"], "risk_tier": t["risk_tier"],
+                "findings": len(items)}
     finally:
         conn.close()
 
@@ -230,6 +269,8 @@ async def create_pr(scan_id: str, body: PrRequest | None = None):
         scan, findings = payload["scan"], payload["findings"]
         if scan["status"] == "pr_opened":
             raise HTTPException(409, f"A pull request is already open: {scan['pr_url']}")
+        if scan["source"] == "assessment":
+            raise HTTPException(409, "An assessment has no code to change. Download the checklist instead.")
         if scan["source"] == "private_zip":
             raise HTTPException(409, "This scan came from an uploaded ZIP. Download the fixes instead.")
         if scan["status"] not in ("ready_for_review", "escalated"):
@@ -315,6 +356,8 @@ def export_patch(scan_id: str):
             raise HTTPException(409, "Downloads are only available for uploaded ZIP scans.")
         if scan["status"] not in ("ready_for_review", "escalated"):
             raise HTTPException(409, "This scan is not ready.")
+        if not scan["has_files"]:
+            raise HTTPException(409, "The uploaded files were deleted from the server, so the fixes can no longer be prepared.")
         if any(f["status"] == "pending" for f in findings):
             raise HTTPException(409, "Review every pending finding before downloading the fixes.")
         approved = [f for f in findings if f["status"] in ("approved", "apply_failed")]
@@ -356,6 +399,45 @@ def export_patch(scan_id: str):
             "failed": [f["id"] for f in failed]})
         return Response(buf.getvalue(), media_type="application/zip", headers={
             "Content-Disposition": f'attachment; filename="eu-bridge-fixes-{scan_id[:8]}.zip"'})
+    finally:
+        conn.close()
+
+
+@router.get("/scans/{scan_id}/checklist")
+def export_checklist(scan_id: str):
+    conn = connect()
+    try:
+        payload = _scan_payload(conn, scan_id)
+        scan, findings = payload["scan"], payload["findings"]
+        if scan["source"] != "assessment":
+            raise HTTPException(409, "Checklists are only available for assessments.")
+        if any(f["status"] == "pending" for f in findings):
+            raise HTTPException(409, "Decide on every recommendation before downloading the checklist.")
+        if not any(f["status"] == "approved" for f in findings):
+            raise HTTPException(409, "Accept at least one recommendation first.")
+        md = assessment.build_checklist_md(scan, findings, scan["questionnaire"])
+        audit.log("system", "checklist_exported", scan_id, details={
+            "accepted": [f["id"] for f in findings if f["status"] == "approved"]})
+        return Response(md, media_type="text/markdown; charset=utf-8", headers={
+            "Content-Disposition": f'attachment; filename="eu-bridge-checklist-{scan_id[:8]}.md"'})
+    finally:
+        conn.close()
+
+
+@router.delete("/scans/{scan_id}/files")
+def delete_files(scan_id: str):
+    """Remove the uploaded source files from this server."""
+    conn = connect()
+    try:
+        scan = _one(conn, "SELECT * FROM scans WHERE id=?", scan_id)
+        if not scan:
+            raise HTTPException(404, "Scan not found")
+        if scan["source"] != "private_zip":
+            raise HTTPException(409, "Only uploaded ZIP scans store files.")
+        n = conn.execute("DELETE FROM scan_files WHERE scan_id=?", (scan_id,)).rowcount
+        conn.commit()
+        audit.log("system", "files_deleted", scan_id, details={"files": n})
+        return {"deleted": n}
     finally:
         conn.close()
 

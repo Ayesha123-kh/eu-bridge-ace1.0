@@ -86,7 +86,7 @@
       <tbody>
       {% for s in scans %}
         <tr>
-          <td><a href="/scans/{{ s.id }}">{{ s.repo_owner }}/{{ s.repo_name }}</a>{% if s.source == 'private_zip' %} <span class="tag">ZIP</span>{% elif s.source == 'private_token' %} <span class="tag">Private</span>{% endif %}</td>
+          <td><a href="/scans/{{ s.id }}">{% if s.source == 'assessment' %}{{ s.repo_name }}{% else %}{{ s.repo_owner }}/{{ s.repo_name }}{% endif %}</a>{% if s.source == 'private_zip' %} <span class="tag">ZIP</span>{% elif s.source == 'private_token' %} <span class="tag">Private</span>{% elif s.source == 'assessment' %} <span class="tag">Assessment</span>{% endif %}</td>
           <td>{{ s.status_label }}</td>
           <td class="num">{{ s.findings }}</td>
           <td>{{ s.when }}</td>

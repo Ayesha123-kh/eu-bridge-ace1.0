@@ -144,3 +144,64 @@ def test_dashboard_shows_counts(client):
     page = client.get("/").text
     assert "Decisions waiting" in page and "Findings by check" in page and "o/r" in page
     assert "Audit log intact" in page
+
+
+from app.services.redact import redact
+
+
+def test_redact_masks_common_secrets():
+    text = ('key = "sk-abcdefghijklmnopqrstuvwxyz123456"\nAWS = "AKIAABCDEFGHIJKLMNOP"\n'
+            'password = "hunter2hunter2"\nok = "hello"\n'
+            "token = github_pat_ABCDEFGHIJKLMNOPQRSTUVWX\n")
+    out, n = redact(text)
+    assert n >= 4 and "sk-abc" not in out and "AKIA" not in out and "hunter2" not in out
+    assert "github_pat_" not in out and 'ok = "hello"' in out
+
+
+def test_secrets_are_masked_before_going_to_the_model(monkeypatch):
+    import asyncio
+    sent = []
+
+    async def fake_batch(client, system, batch, context=""):
+        sent.append(dict(batch))
+        return scanner.ScanOutput(findings=[], risk_signals=[])
+
+    monkeypatch.setattr(scanner, "_scan_batch", fake_batch)
+    files = {"a.py": 'import openai\nKEY = "sk-abcdefghijklmnopqrstuvwxyz123456"\n'}
+    result = asyncio.run(scanner.analyse(files, {}, {"description": "x"}))
+    assert "sk-abcdef" not in sent[0]["a.py"] and result["stats"]["secrets_masked"] == 1
+
+
+def test_assessment_flow_needs_no_code(client):
+    q = {**Q, "domain": "hiring", "ai_features": ["chat", "decisions_about_people"],
+         "ai_provider": "openai", "data_types": ["contact"], "product_name": "HireBot"}
+    r = client.post("/api/assessments", json=q)
+    assert r.status_code == 200 and r.json()["status"] == "escalated"
+    sid = r.json()["scan_id"]
+    data = client.get(f"/api/scans/{sid}").json()
+    rules = [f["rule_id"] for f in data["findings"]]
+    assert {"AIA-50-1", "GDPR-13", "GDPR-5-1C", "AIA-RISK"} <= set(rules)
+    assert any("OpenAI" in f["suggested_patch"] for f in data["findings"])
+    assert client.get(f"/api/scans/{sid}/checklist").status_code == 409
+    assert client.post(f"/api/scans/{sid}/pr").status_code == 409
+    for f in data["findings"]:
+        client.post(f"/api/findings/{f['id']}/review", json={
+            "action": "approve" if f["rule_id"] != "GDPR-5-1C" else "reject",
+            "reviewer": "Ayesha", "reason": "reviewed with the team"})
+    md = client.get(f"/api/scans/{sid}/checklist")
+    assert md.status_code == 200 and "Ayesha" in md.text and "AI assistant" in md.text
+    assert "checklist_exported" in [e["action"] for e in client.get("/api/audit/export").json()]
+    assert client.get("/api/audit/verify").json()["ok"] is True
+
+
+def test_delete_uploaded_files(client):
+    z = make_zip({"proj/server.py": FILE})
+    sid = client.post("/api/scans/upload", data={"questionnaire": __import__("json").dumps(Q)},
+                      files={"file": ("a.zip", z, "application/zip")}).json()["scan_id"]
+    assert client.get(f"/api/scans/{sid}").json()["scan"]["has_files"] is True
+    assert client.delete(f"/api/scans/{sid}/files").json()["deleted"] == 1
+    assert client.get(f"/api/scans/{sid}").json()["scan"]["has_files"] is False
+    fid = client.get(f"/api/scans/{sid}").json()["findings"][0]["id"]
+    client.post(f"/api/findings/{fid}/review", json={"action": "approve", "reviewer": "A", "reason": "fine here"})
+    assert client.get(f"/api/scans/{sid}/patch").status_code == 409
+    assert "files_deleted" in [e["action"] for e in client.get("/api/audit/export").json()]

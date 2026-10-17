@@ -19,11 +19,13 @@
       <section class="step" data-step="1">
         <fieldset class="field">
           <legend>Where is the code?</legend>
-          <div class="options">
+          <div class="options three">
             <label class="option"><input type="radio" name="visibility" value="public" checked>
               <span><strong>Public repository</strong><small>Anyone can see it on GitHub. We read it directly.</small></span></label>
             <label class="option"><input type="radio" name="visibility" value="private">
               <span><strong>Private code</strong><small>Not public. Give us read access or upload a ZIP.</small></span></label>
+            <label class="option"><input type="radio" name="visibility" value="assessment">
+              <span><strong>No code</strong><small>Answer questions and get a checklist. No code is shared.</small></span></label>
           </div>
         </fieldset>
 
@@ -31,7 +33,14 @@
           <div class="field">
             <label for="repo_url">GitHub repository</label>
             <input id="repo_url" type="url" inputmode="url" autocomplete="off" placeholder="https://github.com/owner/repository">
-            <p class="hint"><a href="#" id="use-demo">Use the demo chatbot</a> to try it quickly.</p>
+            <p class="hint"><a href="#" id="use-demo">Use the demo chatbot</a> to try it quickly. You can scan any public repository, but only open pull requests on code you own or have permission to change. Check its licence first.</p>
+          </div>
+        </div>
+
+        <div id="assess-box" hidden>
+          <div class="callout">
+            <h2>No code needed</h2>
+            <p>You answer the next two pages about your product. EU-Bridge returns the risk tier, the rules that apply, and a checklist of changes with ready-to-use wording. Nothing is read from your code or sent to an AI provider.</p>
           </div>
         </div>
 
@@ -45,6 +54,16 @@
                 <span><strong>Upload a ZIP</strong><small>You download the fixed files. No GitHub access needed.</small></span></label>
             </div>
           </fieldset>
+
+          <div class="callout privacy">
+            <h2>What happens to your code</h2>
+            <ul>
+              <li>Only source code files are read. Secrets such as API keys and passwords are masked first.</li>
+              <li>The relevant files are sent to OpenAI to find the issues. Nothing else is shared.</li>
+              <li>Your token is never stored or logged. Uploaded ZIP files can be deleted from this server after you download the fixes.</li>
+              <li>If you would rather share nothing, choose <strong>No code</strong> above.</li>
+            </ul>
+          </div>
 
           <div id="token-box">
             <div class="field">
@@ -173,7 +192,7 @@
     <div id="scanning" class="scanning" hidden aria-live="polite">
       <div class="spinner" aria-hidden="true"></div>
       <h2>Scanning <span id="scanning-repo"></span></h2>
-      <p>The AI is reviewing the code. This usually takes 20 to 60 seconds. Keep this page open.</p>
+      <p id="scanning-text">The AI is reviewing the code. This usually takes 20 to 60 seconds. Keep this page open.</p>
     </div>
   </section>
 

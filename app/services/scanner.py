@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from app import config
 from app.services import github
+from app.services.redact import redact
 
 ALLOWED_EXT = {".py", ".js", ".jsx", ".ts", ".tsx", ".html", ".vue", ".svelte"}
 SKIP_DIRS = {"node_modules", "dist", "build", ".next", "venv", ".venv", "__pycache__", ".git"}
@@ -202,7 +203,13 @@ async def analyse(files: dict[str, str], stats: dict, questionnaire: dict | None
     raw: list[RawFinding] = []
     signals: set[str] = set()
     warnings: list[str] = []
-    items = list(files.items())
+    masked_total = 0
+    items = []
+    for path, content in files.items():
+        text, n = redact(content)  # secrets never leave this server
+        masked_total += n
+        items.append((path, text))
+    stats["secrets_masked"] = masked_total
     batches = list(_batches(items, BATCH_SIZE))
     failures = 0
     last_error = ""

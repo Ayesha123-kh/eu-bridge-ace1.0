@@ -114,7 +114,7 @@
     var h = '<form class="decision-form" data-form="finding" data-id="' + f.id + '" data-mode="' + mode + '" novalidate>';
     h += '<strong>' + titles[mode] + '</strong>';
     if (mode === 'edit') {
-      h += '<div class="field" style="margin:0"><label for="patch-' + f.id + '">Replacement code. It replaces the lines shown in red.</label>' +
+      h += '<div class="field" style="margin:0"><label for="patch-' + f.id + '">' + (data.scan.source === 'assessment' ? 'Edit the wording or code.' : 'Replacement code. It replaces the lines shown in red.') + '</label>' +
         '<textarea class="patch" id="patch-' + f.id + '" rows="5" spellcheck="false">' + esc(patch) + '</textarea></div>';
     }
     h += '<div class="row"><div class="field" style="margin:0"><label for="name-' + f.id + '">Your name</label>' +
@@ -129,21 +129,27 @@
   }
 
   function findingCard(f) {
-    var rule = RULES[f.rule_id] || { name: f.title, law: '' };
+    var rule = RULES[f.rule_id] || { name: f.title, law: f.rule_id === 'AIA-RISK' ? 'EU AI Act, Annex III' : '' };
     var after = f.final_patch || f.suggested_patch;
     var conf = Math.round((f.confidence || 0) * 100);
+    var assess = data.scan.source === 'assessment';
     var h = '<article class="card" id="f-' + f.id + '">';
     h += '<div class="card-head"><span class="rule">' + esc(f.rule_id) + '</span><h3>' + esc(f.title || rule.name) + '</h3></div>';
     h += '<div class="facts"><span>' + esc(rule.law) + '</span>' +
       '<span>Severity: <span class="sev-' + esc(f.severity) + '">' + esc(f.severity) + '</span></span>' +
-      '<span class="conf">AI confidence ' + conf + '%<span class="bar-track" aria-hidden="true"><span class="bar-fill" style="width:' + conf + '%;display:block"></span></span></span></div>';
+      (assess ? '<span>Recommended from your answers</span>' :
+        '<span class="conf">AI confidence ' + conf + '%<span class="bar-track" aria-hidden="true"><span class="bar-fill" style="width:' + conf + '%;display:block"></span></span></span>') + '</div>';
     h += '<p class="explain">' + esc(f.explanation) + '</p>';
     if (f.status === 'needs_human' && f.needs_human_reason) {
       h += '<div class="flag"><strong>The AI was unsure.</strong> ' + esc(f.needs_human_reason) + ' Review this one carefully before deciding.</div>';
     }
-    h += '<div class="diff-wrap"><div class="diff-title">Proposed change' + (f.final_patch ? ' (edited by reviewer)' : '') + '</div>' +
-      '<div class="file">' + esc(f.file_path) + '</div>' + renderDiff(f.original_snippet, after) +
-      '<div class="diff-key">Red lines are removed. Green lines are added.</div></div>';
+    if (assess) {
+      h += '<div class="diff-wrap"><div class="diff-title">Suggested wording or code' + (f.final_patch ? ' (edited by reviewer)' : '') + '</div><pre class="suggest">' + esc(after) + '</pre></div>';
+    } else {
+      h += '<div class="diff-wrap"><div class="diff-title">Proposed change' + (f.final_patch ? ' (edited by reviewer)' : '') + '</div>' +
+        '<div class="file">' + esc(f.file_path) + '</div>' + renderDiff(f.original_snippet, after) +
+        '<div class="diff-key">Red lines are removed. Green lines are added.</div></div>';
+    }
 
     if (isDecided(f)) {
       h += '<div class="decided">' + statusPill(f) +
@@ -166,7 +172,7 @@
     Object.keys(RULES).forEach(function (rule) {
       var fs = data.findings.filter(function (f) { return f.rule_id === rule; });
       var state, cls;
-      if (!fs.length) { state = 'No issue found in the files reviewed'; cls = 'clear'; }
+      if (!fs.length) { state = s.source === 'assessment' ? 'Not recommended for your answers' : 'No issue found in the files reviewed'; cls = 'clear'; }
       else {
         var applied = fs.filter(function (f) { return f.status === 'applied'; }).length;
         var appr = fs.filter(function (f) { return f.status === 'approved' || f.status === 'applied'; }).length;
@@ -174,8 +180,8 @@
         var wait = fs.filter(function (f) { return f.status === 'pending' || f.status === 'needs_human'; }).length;
         if (wait) { state = wait + ' waiting for your decision'; cls = 'open'; }
         else if (applied) { state = 'Fix sent in pull request'; cls = 'done'; }
-        else if (appr) { state = 'Fix approved, ready to send'; cls = 'done'; }
-        else if (rej) { state = 'Fix rejected'; cls = 'muted'; }
+        else if (appr) { state = s.source === 'assessment' ? 'Recommendation accepted' : 'Fix approved, ready to send'; cls = 'done'; }
+        else if (rej) { state = s.source === 'assessment' ? 'Recommendation rejected' : 'Fix rejected'; cls = 'muted'; }
         else { state = 'Issue found'; cls = 'open'; }
       }
       h += '<div class="cs-row"><div><div class="name">' + esc(RULES[rule].name) + '</div><div class="law">' + esc(rule) + ' \u00b7 ' + esc(RULES[rule].law) + '</div></div><div class="state ' + cls + '">' + esc(state) + '</div></div>';
@@ -213,7 +219,15 @@
   var needToken = false;
 
   function prPanel(c) {
-    var s = data.scan, zip = s.source === 'private_zip';
+    var s = data.scan, zip = s.source === 'private_zip', assess = s.source === 'assessment';
+    if (assess) {
+      var okA = c.pending === 0 && c.approved > 0;
+      var mA = c.pending > 0 ? c.pending + (c.pending === 1 ? ' recommendation still needs' : ' recommendations still need') + ' a decision.' :
+        c.approved === 0 ? 'Accept at least one recommendation to download the checklist.' :
+        c.approved + (c.approved === 1 ? ' recommendation' : ' recommendations') + ' accepted. The checklist lists each one with who accepted it and why.';
+      return '<section class="card pr"><h2>Download your checklist</h2><p class="status">' + esc(mA) + '</p><div>' +
+        (okA ? '<a class="btn primary" href="/api/scans/' + esc(s.id) + '/checklist">Download checklist (Markdown)</a>' : '<button class="btn primary" type="button" disabled>Download checklist (Markdown)</button>') + '</div></section>';
+    }
     if (s.status === 'pr_opened') {
       return '<section class="card pr"><h2>Pull request opened</h2><p class="status">The approved fixes are on a new branch of ' +
         esc(s.repo_owner + '/' + s.repo_name) + '. Review the diff on GitHub before merging.</p>' +
@@ -236,7 +250,9 @@
         '</label><input type="password" id="pr-token" autocomplete="off" spellcheck="false" placeholder="github_pat_\u2026"><p class="hint">Used once to open the pull request. It is never stored or logged.</p></div>';
     }
     h += '<p class="error" id="pr-error" hidden role="alert"></p>';
-    if (zip) h += '<div>' + (ok ? '<a class="btn primary" href="/api/scans/' + esc(s.id) + '/patch" id="dl-link">Download fixed files (ZIP)</a>' : '<button class="btn primary" type="button" disabled>Download fixed files (ZIP)</button>') + '</div>';
+    if (zip && !s.has_files) h += '<p class="meta-note">Your uploaded files have been deleted from this server.</p>';
+    else if (zip) h += '<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">' + (ok ? '<a class="btn primary" href="/api/scans/' + esc(s.id) + '/patch" id="dl-link">Download fixed files (ZIP)</a>' : '<button class="btn primary" type="button" disabled>Download fixed files (ZIP)</button>') +
+      '<button class="linkbtn danger-link" type="button" data-act="delete-files">Delete my uploaded code from this server</button></div>';
     else h += '<div><button class="btn primary" type="button" data-act="pr"' + (ok ? '' : ' disabled') + '>Create pull request</button></div>';
     return h + '</section>';
   }
@@ -249,16 +265,20 @@
       return;
     }
     var edited = c.edited, plain = c.approved - edited, waiting = c.pending + c.needs_human;
-    var h = '<div class="scanhead"><h1>' + esc(s.repo_owner + '/' + s.repo_name) + '</h1>' +
-      '<p class="meta">' + (s.source === 'private_zip' ? 'Uploaded ZIP ' + esc(s.source_name || '') + ' \u00b7 ' : s.source === 'private_token' ? 'Private repository \u00b7 ' : '') + 'Scanned ' + esc(fmt(s.created_at)) + (s.commit_sha ? ' · commit ' + esc(s.commit_sha.slice(0, 7)) : '') +
-      ' · Risk tier: <strong>' + esc(RISK[s.risk_tier] || s.risk_tier || 'unknown') + '</strong></p></div>';
+    var h = '<div class="scanhead"><h1>' + esc(s.source === 'assessment' ? s.repo_name : s.repo_owner + '/' + s.repo_name) + '</h1>' +
+      '<p class="meta">' + (s.source === 'assessment' ? 'No-code assessment \u00b7 ' : s.source === 'private_zip' ? 'Uploaded ZIP ' + esc(s.source_name || '') + ' \u00b7 ' : s.source === 'private_token' ? 'Private repository \u00b7 ' : '') + 'Scanned ' + esc(fmt(s.created_at)) + (s.commit_sha ? ' · commit ' + esc(s.commit_sha.slice(0, 7)) : '') +
+      (s.source === 'public' && (s.notes || {}).license ? ' \u00b7 Licence ' + esc(s.notes.license) : '') + ' \u00b7 Risk tier: <strong>' + esc(RISK[s.risk_tier] || s.risk_tier || 'unknown') + '</strong></p></div>';
     h += riskPanel() + checksSummary();
     var notes = s.notes || {};
-    if (notes.files_scanned != null) {
-      h += '<p class="meta" style="color:var(--muted);font-size:14px">' + notes.files_scanned + ' ' + (notes.files_scanned === 1 ? 'file' : 'files') +
-        ' with AI-related code reviewed.' + (notes.warnings || []).map(function (w) { return ' ' + esc(w); }).join('') + '</p>';
+    if (s.source === 'public' && s.notes && 'license' in notes && !notes.license) {
+      h += '<div class="callout warn"><h2>This repository has no open-source licence</h2><p>You can scan it, but without a licence the owner keeps all rights. Do not open a pull request unless you own the code or have the owner\u2019s permission.</p></div>';
     }
-    h += '<p class="tally">AI suggested <b>' + c.suggested + '</b><span class="sep">·</span>Approved <b>' + plain +
+    if (s.source !== 'assessment' && notes.files_scanned != null) {
+      h += '<p class="meta-note">' + notes.files_scanned + ' ' + (notes.files_scanned === 1 ? 'file' : 'files') +
+        ' with AI-related code reviewed.' + (notes.secrets_masked ? ' ' + notes.secrets_masked + ' ' + (notes.secrets_masked === 1 ? 'secret was' : 'secrets were') + ' masked before the code was sent to the AI.' : '') +
+        (notes.warnings || []).map(function (w) { return ' ' + esc(w); }).join('') + '</p>';
+    }
+    h += '<p class="tally">' + (s.source === 'assessment' ? 'Recommended' : 'AI suggested') + ' <b>' + c.suggested + '</b><span class="sep">·</span>Approved <b>' + plain +
       '</b><span class="sep">·</span>Edited <b>' + edited + '</b><span class="sep">·</span>Rejected <b>' + c.rejected +
       '</b><span class="sep">·</span>Waiting for you <b>' + waiting + '</b></p>';
 
@@ -313,6 +333,10 @@
       openForm = { kind: 'risk' };
       render();
       document.getElementById('risk-reason').focus();
+    } else if (act === 'delete-files') {
+      if (busy) return;
+      busy = true;
+      api('/api/scans/' + scanId + '/files', { method: 'DELETE' }).then(function () { return load(true); }).finally(function () { busy = false; });
     } else if (act === 'pr') {
       if (busy) return;
       var tokenEl = document.getElementById('pr-token');

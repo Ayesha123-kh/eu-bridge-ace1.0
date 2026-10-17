@@ -32,6 +32,8 @@ ACTION_LABELS = {
     "pr_opened": "Pull request opened",
     "pr_failed": "Pull request failed",
     "patch_exported": "Fixes downloaded",
+    "checklist_exported": "Checklist downloaded",
+    "files_deleted": "Uploaded files deleted",
 }
 
 
@@ -99,7 +101,7 @@ def _dashboard() -> dict:
         if unreviewed:
             reasons.append("risk tier not yet confirmed")
         if reasons:
-            attention.append({"id": sc["id"], "name": f"{sc['repo_owner']}/{sc['repo_name']}",
+            attention.append({"id": sc["id"], "name": sc["repo_name"] if sc["source"] == "assessment" else f"{sc['repo_owner']}/{sc['repo_name']}",
                               "why": ", ".join(reasons)})
 
     checks = []

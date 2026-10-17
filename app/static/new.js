@@ -16,9 +16,11 @@
   function clearError() { errorBox.hidden = true; }
 
   function syncSource() {
-    var priv = radio('visibility') === 'private';
-    $('public-box').hidden = priv;
+    var vis = radio('visibility');
+    var priv = vis === 'private';
+    $('public-box').hidden = vis !== 'public';
     $('private-box').hidden = !priv;
+    $('assess-box').hidden = vis !== 'assessment';
     var zip = radio('method') === 'zip';
     $('token-box').hidden = zip;
     $('zip-box').hidden = !zip;
@@ -37,6 +39,7 @@
     backBtn.hidden = n === 1;
     nextBtn.hidden = n === LAST;
     submitBtn.hidden = n !== LAST;
+    submitBtn.textContent = radio('visibility') === 'assessment' ? 'Get assessment' : 'Scan code';
     clearError();
     window.scrollTo({ top: 0 });
   }
@@ -44,7 +47,9 @@
   function validate(n) {
     if (n === 1) {
       var vis = radio('visibility');
-      if (vis === 'public') {
+      if (vis === 'assessment') {
+        return true;
+      } else if (vis === 'public') {
         if (!REPO_RE.test($('repo_url').value.trim())) { showError('Enter a repository URL like https://github.com/owner/repository.'); $('repo_url').focus(); return false; }
       } else if (radio('method') === 'token') {
         if (!REPO_RE.test($('private_url').value.trim())) { showError('Enter the private repository URL, like https://github.com/your-company/repository.'); $('private_url').focus(); return false; }
@@ -118,11 +123,16 @@
     clearError();
     if (!validate(1) || !validate(2)) return;
     var q = questionnaire();
-    var priv = radio('visibility') === 'private';
+    var vis = radio('visibility');
+    var priv = vis === 'private';
     var zip = priv && radio('method') === 'zip';
     var req, label;
 
-    if (zip) {
+    if (vis === 'assessment') {
+      req = fetch('/api/assessments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(q) });
+      label = 'your answers';
+      $('scanning-text').textContent = 'Preparing your checklist from your answers. No code is read.';
+    } else if (zip) {
       var file = $('zip_file').files[0];
       var fd = new FormData();
       fd.append('questionnaire', JSON.stringify(q));
@@ -138,6 +148,7 @@
     }
 
     $('scanning-repo').textContent = label;
+    if (vis !== 'assessment') $('scanning-text').textContent = 'The AI is reviewing the code. This usually takes 20 to 60 seconds. Keep this page open.';
     form.hidden = true;
     document.querySelector('.steps').hidden = true;
     scanning.hidden = false;

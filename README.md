@@ -53,6 +53,9 @@ Each entry stores `sha256(prev_hash + canonical_json(entry))`, starting from 64 
 |---|---|---|
 | GET | `/healthz` | Health check |
 | POST | `/api/scans` | Scan a GitHub repo: `{source: public \| private_token, repo_url, access_token?, questionnaire}` |
+| POST | `/api/assessments` | No-code assessment from the questionnaire alone |
+| GET | `/api/scans/{id}/checklist` | Assessments only: download the accepted checklist |
+| DELETE | `/api/scans/{id}/files` | ZIP scans: delete the uploaded files from the server |
 | POST | `/api/scans/upload` | Scan an uploaded ZIP (multipart: `questionnaire` JSON, `file`) |
 | GET | `/api/scans/{id}` | Scan, findings and counters |
 | POST | `/api/findings/{id}/review` | `{action: approve \| edit_and_approve \| reject, reviewer, reason, final_patch?}` |
@@ -77,9 +80,17 @@ curl -X POST http://localhost:8000/api/scans \
 |---|---|
 | `/` | Dashboard: totals, scans that need attention, findings by check, recent activity, audit integrity |
 | `/explore` | Pick what your business offers and see which EU rules apply (AI Act, GDPR, NIS2, CRA and more), what each asks, and key dates |
-| `/new` | Three-step scan form for public repos, private repos (token) or an uploaded ZIP |
+| `/new` | Three-step form: public repo, private code (token or ZIP) or no code (assessment) |
 | `/scans/{id}` | Review page: the four checks, diffs, approve / edit / reject, pull request or download |
 | `/audit` | Audit log with Verify and Export |
+
+## Not sharing code
+
+Some businesses will not hand over source code. EU-Bridge supports three levels:
+
+1. **No code (assessment):** answer the questionnaire and get the risk tier, the rules that apply, and a checklist with ready-to-use wording and a redaction helper. A person accepts or rejects each item and downloads the checklist. Nothing is read or sent to an AI provider.
+2. **Private code, token or ZIP:** the relevant files are sent to OpenAI to find issues, after secrets (API keys, tokens, passwords, private keys) are masked. Tokens are never stored. Uploaded ZIP files can be deleted from the server at any time.
+3. **Public repositories:** the licence is shown, and the app warns when there is none. Open pull requests only on code you own or have permission to change.
 
 ## Private code
 
