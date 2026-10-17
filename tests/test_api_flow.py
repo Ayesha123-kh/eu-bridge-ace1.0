@@ -2,12 +2,12 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from conftest import VALID
 from app.routes import api
 from app.services import github, scanner
 
 FILE = "import openai\n@app.post('/chat')\ndef chat():\n    print(f'User {email} said {msg}')\n    return client.chat.completions.create()\n"
-QUESTIONNAIRE = {"description": "CV screening bot", "uses_llm": True,
-                 "processes_personal_data": True, "domain": "hiring"}
+QUESTIONNAIRE = {**VALID, "domain": "hiring", "human_review": "sometimes"}
 
 
 @pytest.fixture

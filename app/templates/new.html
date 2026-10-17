@@ -90,6 +90,15 @@
       <!-- Step 2 -->
       <section class="step" data-step="2" hidden>
         <div class="field">
+          <label for="company_name">Company name</label>
+          <input id="company_name" type="text" maxlength="120" autocomplete="organization" placeholder="For example: Acme Ltd">
+        </div>
+        <div class="field">
+          <label for="website">Company website</label>
+          <input id="website" type="text" inputmode="url" maxlength="300" autocomplete="url" placeholder="https://example.com">
+          <p class="hint">We use it to identify the business in your audit record. It is not scanned.</p>
+        </div>
+        <div class="field">
           <label for="product_name">Product name <span class="optional">(optional)</span></label>
           <input id="product_name" type="text" maxlength="120" placeholder="For example: HireBot">
         </div>
@@ -98,7 +107,7 @@
           <textarea id="description" rows="3" maxlength="1000" placeholder="For example: an assistant that answers customer questions"></textarea>
         </div>
         <fieldset class="field">
-          <legend>Who uses it?</legend>
+          <legend>Who uses it? <span class="optional">(choose at least one)</span></legend>
           <div class="chips">
             <label class="chip"><input type="checkbox" name="user_groups" value="consumers"> Consumers</label>
             <label class="chip"><input type="checkbox" name="user_groups" value="business_customers"> Business customers</label>
@@ -131,12 +140,16 @@
           </select>
           <p class="hint">The areas listed are treated as possibly high-risk under the EU AI Act. A person must confirm the risk tier.</p>
         </div>
+        <div class="field" id="industry-field" hidden>
+          <label for="industry">Which industry is it? <span class="optional">(required)</span></label>
+          <input id="industry" type="text" maxlength="120" placeholder="For example: retail, logistics, legal services">
+        </div>
       </section>
 
       <!-- Step 3 -->
       <section class="step" data-step="3" hidden>
         <fieldset class="field">
-          <legend>What does the AI do?</legend>
+          <legend>What does the AI do? <span class="optional">(choose at least one)</span></legend>
           <div class="chips">
             <label class="chip"><input type="checkbox" name="ai_features" value="chat"> Chats with users</label>
             <label class="chip"><input type="checkbox" name="ai_features" value="text_generation"> Writes text</label>
@@ -147,7 +160,7 @@
           </div>
         </fieldset>
         <fieldset class="field">
-          <legend>Which AI providers does it use?</legend>
+          <legend>Which AI providers does it use? <span class="optional">(choose at least one)</span></legend>
           <div class="chips">
             <label class="chip"><input type="checkbox" name="ai_providers" value="openai"> OpenAI</label>
             <label class="chip"><input type="checkbox" name="ai_providers" value="anthropic"> Anthropic</label>
@@ -155,11 +168,12 @@
             <label class="chip"><input type="checkbox" name="ai_providers" value="groq"> Groq</label>
             <label class="chip"><input type="checkbox" name="ai_providers" value="self_hosted"> Self-hosted model</label>
             <label class="chip"><input type="checkbox" name="ai_providers" value="other"> Another provider</label>
+            <label class="chip"><input type="checkbox" name="ai_providers" value="unknown" data-exclusive> Not sure</label>
           </div>
-          <p class="hint">Choose every provider your product sends data to. Leave empty if you are not sure.</p>
+          <p class="hint">Choose every provider your product sends data to. Pick Not sure if you do not know.</p>
         </fieldset>
         <fieldset class="field">
-          <legend>What personal data does it handle?</legend>
+          <legend>What personal data does it handle? <span class="optional">(choose at least one)</span></legend>
           <div class="chips">
             <label class="chip"><input type="checkbox" name="data_types" value="contact"> Names, emails, phone numbers</label>
             <label class="chip"><input type="checkbox" name="data_types" value="identity"> ID or account details</label>
@@ -167,8 +181,9 @@
             <label class="chip"><input type="checkbox" name="data_types" value="health"> Health data</label>
             <label class="chip"><input type="checkbox" name="data_types" value="biometric"> Biometric data</label>
             <label class="chip"><input type="checkbox" name="data_types" value="children"> Children's data</label>
+            <label class="chip"><input type="checkbox" name="data_types" value="none" data-exclusive> No personal data</label>
           </div>
-          <p class="hint">Leave all unchecked if it handles none.</p>
+          <p class="hint">Choose at least one. Pick No personal data if it handles none.</p>
         </fieldset>
         <fieldset class="field">
           <legend>Does a person review the AI's output before it affects someone?</legend>
@@ -178,6 +193,7 @@
             <label class="choice"><input type="radio" name="human_review" value="never"> Never</label>
             <label class="choice"><input type="radio" name="human_review" value="not_applicable" checked> Not applicable</label>
           </div>
+          <p class="hint">Not applicable is not accepted if the AI recommends, ranks, or makes decisions about people, or if you chose a high-risk area.</p>
         </fieldset>
       </section>
 

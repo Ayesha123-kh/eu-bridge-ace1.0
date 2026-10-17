@@ -74,6 +74,10 @@ curl -X POST http://localhost:8000/api/scans \
   -d '{"repo_url":"https://github.com/Ayesha123-kh/eu-bridge-demo-chatbot","questionnaire":{"description":"CV screening bot","uses_llm":true,"processes_personal_data":true,"domain":"hiring"}}'
 ```
 
+## Input checks
+
+The scan form requires a company name, a business website, a real description (not keyboard mashing), who uses the product, what the AI does, which AI providers it uses, and which personal data it handles. If the area is "none of the listed", an industry is required. "Not applicable" for human review is refused when the AI affects people. The same rules run on the server, so the API cannot skip them. Set `REQUIRE_LOGIN=true` to require an account before any scan.
+
 ## Accounts and history
 
 - **Sign in is optional.** Anyone can use EU-Bridge as a guest. Creating an account (name, email, password) keeps history across devices, and scans made as a guest on that device move into the account.
